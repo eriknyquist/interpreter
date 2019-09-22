@@ -25,6 +25,10 @@
 typedef struct {
     ulist_node_t *node;
     size_t local_index;
+    unsigned copy_data : 2;
+
+    // points to the allocated block after a successful insert operation
+    void *allocated;
 } access_params_t;
 
 
@@ -122,9 +126,14 @@ static void _add_to_nonfull_node(ulist_t *list, access_params_t *params,
         memmove(dest, target, bytes_to_move);
     }
 
-    // Copy item to target location
-    memcpy(target, item, list->item_size_bytes);
+    if (params->copy_data)
+    {
+        // Copy item to target location
+        memcpy(target, item, list->item_size_bytes);
+    }
+
     params->node->used += 1u;
+    params->allocated = target;
 }
 
 
@@ -363,9 +372,11 @@ static access_params_t *_find_item_by_index(ulist_t *list, unsigned long long in
 
 /* Special case for tail item-- instead of handling this in ulist_insert_item,
  * we can avoid a lot of checks and do things a bit quicker in this function */
-static ulist_status_e _new_tail_item(ulist_t *list, void *item)
+static ulist_status_e _new_tail_item(ulist_t *list, void *item, unsigned copy_data,
+                                     void **allocated)
 {
-    access_params_t params = {.node=list->tail, .local_index=list->tail->used};
+    access_params_t params = {.node=list->tail, .local_index=list->tail->used,
+                              .copy_data=copy_data};
 
     // Tail node is full, create new
     if (list->tail->used == list->items_per_node)
@@ -387,6 +398,12 @@ static ulist_status_e _new_tail_item(ulist_t *list, void *item)
 
     _add_to_nonfull_node(list, &params, item);
     list->num_items += 1;
+
+    if (NULL != allocated)
+    {
+        *allocated = params.allocated;
+    }
+
     return ULIST_OK;
 }
 
@@ -494,7 +511,7 @@ ulist_status_e ulist_insert_item(ulist_t *list, unsigned long long index, void *
     // Special case for index of list->num_items, call _new_tail_item
     if (index == list->num_items)
     {
-        return _new_tail_item(list, item);
+        return _new_tail_item(list, item, 1u, NULL);
     }
 
     access_params_t params;
@@ -504,7 +521,54 @@ ulist_status_e ulist_insert_item(ulist_t *list, unsigned long long index, void *
         return ULIST_ERROR_INTERNAL;
     }
 
+    params.copy_data = 1u;
     return _insert_item(list, &params, item);
+}
+
+/**
+ * @see ulist_api.h
+ */
+ulist_status_e ulist_alloc(ulist_t *list, unsigned long long index, void **ptr)
+{
+    if ((NULL == list) || (NULL == list->tail) || (NULL == ptr))
+    {
+        return ULIST_INVALID_PARAM;
+    }
+
+    if (!_check_write_index(list, index))
+    {
+        return ULIST_INDEX_OUT_OF_RANGE;
+    }
+
+    void *data;
+    ulist_status_e err;
+
+    // Special case for index of list->num_items, call _new_tail_item
+    if (index == list->num_items)
+    {
+        err = _new_tail_item(list, NULL, 0u, &data);
+    }
+    else
+    {
+        access_params_t params;
+
+        if (_find_item_by_index(list, index, &params) == NULL)
+        {
+            return ULIST_ERROR_INTERNAL;
+        }
+
+        params.copy_data = 0u;
+        err = _insert_item(list, &params, NULL);
+        data = params.allocated;
+    }
+
+    if (err != ULIST_OK)
+    {
+        return err;
+    }
+
+    *ptr = data;
+    return ULIST_OK;
 }
 
 
@@ -518,7 +582,7 @@ ulist_status_e ulist_append_item(ulist_t *list, void *item)
         return ULIST_INVALID_PARAM;
     }
 
-    return _new_tail_item(list, item);
+    return _new_tail_item(list, item, 1u, NULL);
 }
 
 

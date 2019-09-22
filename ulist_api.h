@@ -108,6 +108,19 @@ ulist_status_e ulist_insert_item(ulist_t *list, unsigned long long index,
 
 
 /**
+ * Same as ulist_insert_item, except it provides a pointer to the new item
+ * instead of copying data to it.
+ *
+ * @param    list            List instance
+ * @param    index           List index to create new item at
+ * @param    ptr             Pointer to location to store pointer to new item
+ *
+ * @return   ULIST_OK        If new item was created successfully
+ */
+ulist_status_e ulist_alloc(ulist_t *list, unsigned long long index, void **ptr);
+
+
+/**
  * Fetch an item from a specific index in a list.
  *
  * @param    list            List instance
