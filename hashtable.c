@@ -29,9 +29,10 @@ static uint32_t calculate_hash(char *string)
     return hash;
 }
 
-hashtable_status_e hashtable_create(hashtable_t *table)
+hashtable_status_e hashtable_create(hashtable_t *table, size_t data_size_bytes)
 {
     memset(table, 0, sizeof(hashtable_t));
+    table->data_size_bytes = data_size_bytes;
     return HASHTABLE_OK;
 }
 
@@ -49,22 +50,22 @@ hashtable_status_e hashtable_destroy(hashtable_t *table)
     return HASHTABLE_OK;
 }
 
-hashtable_status_e hashtable_put(hashtable_t *table, hashtable_entry_t *entry)
+hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data)
 {
-    if (NULL == entry)
+    if ((NULL == table) || (NULL == key) || (NULL == data))
     {
         return HASHTABLE_INVALID_PARAM;
     }
 
-    uint32_t index = calculate_hash(entry->string) % NUM_TABLE_SLOTS;
+    uint32_t index = calculate_hash(key) % NUM_TABLE_SLOTS;
     ulist_t *slot = &table->table[index];
     table->collisions = 0u;
 
     if (0u == slot->item_size_bytes)
     {
         // Initialize list instance if not yet used
-        CHECK_ULIST_ERR(ulist_create(slot, sizeof(hashtable_entry_t),
-                                     LIST_ITEMS_PER_NODE));
+        size_t entry_size = sizeof(hashtable_entry_t) + table->data_size_bytes;
+        CHECK_ULIST_ERR(ulist_create(slot, entry_size, LIST_ITEMS_PER_NODE));
     }
     else
     {
@@ -81,7 +82,7 @@ hashtable_status_e hashtable_put(hashtable_t *table, hashtable_entry_t *entry)
                 return HASHTABLE_ERROR;
             }
 
-            if (0 == strcmp(entry->string, curr->string))
+            if (0 == strcmp(key, curr->key))
             {
                 return HASHTABLE_ITEM_ALREADY_EXISTS;
             }
@@ -89,19 +90,28 @@ hashtable_status_e hashtable_put(hashtable_t *table, hashtable_entry_t *entry)
 
     }
 
-    CHECK_ULIST_ERR(ulist_append_item(slot, entry));
+    hashtable_entry_t *allocd_entry;
+
+    // fetch a chunk of memory from ulist
+    CHECK_ULIST_ERR(ulist_alloc(slot, slot->num_items, (void **)&allocd_entry));
+
+    // Copy data
+    (void) memcpy(allocd_entry->data, data, table->data_size_bytes);
+
+    // Copy string key
+    (void) strncpy(allocd_entry->key, key, sizeof(allocd_entry->key));
+
     return HASHTABLE_OK;
 }
 
-hashtable_status_e hashtable_get(hashtable_t *table, char *string,
-                                 hashtable_entry_t **entry)
+hashtable_status_e hashtable_get(hashtable_t *table, char *key, void **data_ptr)
 {
-    if ((NULL == entry) || (NULL == string))
+    if ((NULL == table) || (NULL == key) || (NULL == data_ptr))
     {
         return HASHTABLE_INVALID_PARAM;
     }
 
-    uint32_t index = calculate_hash(string) % NUM_TABLE_SLOTS;
+    uint32_t index = calculate_hash(key) % NUM_TABLE_SLOTS;
     ulist_t *slot = &table->table[index];
 
     if (0u == slot->item_size_bytes)
@@ -122,9 +132,9 @@ hashtable_status_e hashtable_get(hashtable_t *table, char *string,
             return HASHTABLE_ERROR;
         }
 
-        if (0 == strcmp(string, curr->string))
+        if (0 == strcmp(key, curr->key))
         {
-            *entry = curr;
+            *data_ptr = curr->data;
             return HASHTABLE_OK;
         }
     }
