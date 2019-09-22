@@ -4,31 +4,27 @@
 
 void set_value(hashtable_t *table, char *name, int value)
 {
-    hashtable_entry_t entry;
-
-    entry.value = value;
-    (void)strncpy(entry.string, name, sizeof(entry.string));
-    (void)hashtable_put(table, &entry);
-    printf("put %s:%d (collisions=%d)\n", name, value, table->collisions);
+    hashtable_status_e err = hashtable_put(table, name, &value);
+    printf("put %s:%d (err=%d, collisions=%d)\n", name, value, err, table->collisions);
 }
 
 void print_value(hashtable_t *table, char *name)
 {
-    hashtable_entry_t *entry;
-    if (HASHTABLE_NO_ITEM == hashtable_get(table, name, &entry))
+    int *value;
+    if (HASHTABLE_NO_ITEM == hashtable_get(table, name, (void **)&value))
     {
         printf("No item matching '%s'\n", name);
         return;
     }
 
-    printf("%s: %d\n", entry->string, entry->value);
+    printf("%s: %d\n", name, *value);
 }
 
 int main(void)
 {
     hashtable_t table;
 
-    hashtable_create(&table);
+    hashtable_create(&table, sizeof(int));
 
     set_value(&table, "value1", 4);
     set_value(&table, "value2", 5);
