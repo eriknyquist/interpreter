@@ -2,6 +2,7 @@
 #define _HASHTABLE_API_H
 
 #include <stdint.h>
+#include "ulist_api.h"
 
 #define NUM_TABLE_SLOTS (128)
 #define MAX_STRING_SIZE (128)
@@ -24,14 +25,20 @@ typedef struct
     int value;
 } hashtable_entry_t;
 
+typedef struct
+{
+    ulist_t table[NUM_TABLE_SLOTS];
+    uint32_t collisions;
+} hashtable_t;
 
-hashtable_status_e hashtable_init(void);
+hashtable_status_e hashtable_create(hashtable_t *table);
 
-hashtable_status_e hashtable_destroy(void);
+hashtable_status_e hashtable_destroy(hashtable_t *table);
 
-hashtable_status_e hashtable_put(hashtable_entry_t *entry);
+hashtable_status_e hashtable_put(hashtable_t *table, hashtable_entry_t *entry);
 
-hashtable_status_e hashtable_get(char *string, hashtable_entry_t **entry);
+hashtable_status_e hashtable_get(hashtable_t *table, char *string,
+                                 hashtable_entry_t **entry);
 
 
 #endif /* _HASHTABLE_API_H */

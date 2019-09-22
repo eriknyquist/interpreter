@@ -16,10 +16,8 @@
     }                                  \
 }                                      \
 
-ulist_t _hashtable[NUM_TABLE_SLOTS];
 
-
-uint32_t calculate_hash(char *string)
+static uint32_t calculate_hash(char *string)
 {
     uint32_t hash = 7u;
 
@@ -31,17 +29,17 @@ uint32_t calculate_hash(char *string)
     return hash;
 }
 
-hashtable_status_e hashtable_init(void)
+hashtable_status_e hashtable_create(hashtable_t *table)
 {
-    memset(_hashtable, 0, sizeof(ulist_t) * NUM_TABLE_SLOTS);
+    memset(table, 0, sizeof(hashtable_t));
     return HASHTABLE_OK;
 }
 
-hashtable_status_e hashtable_destroy(void)
+hashtable_status_e hashtable_destroy(hashtable_t *table)
 {
     for (uint32_t i = 0; i < NUM_TABLE_SLOTS; i++)
     {
-        ulist_t *slot = &_hashtable[i];
+        ulist_t *slot = &table->table[i];
         if (0u < slot->item_size_bytes)
         {
             CHECK_ULIST_ERR(ulist_destroy(slot));
@@ -51,7 +49,7 @@ hashtable_status_e hashtable_destroy(void)
     return HASHTABLE_OK;
 }
 
-hashtable_status_e hashtable_put(hashtable_entry_t *entry)
+hashtable_status_e hashtable_put(hashtable_t *table, hashtable_entry_t *entry)
 {
     if (NULL == entry)
     {
@@ -59,7 +57,8 @@ hashtable_status_e hashtable_put(hashtable_entry_t *entry)
     }
 
     uint32_t index = calculate_hash(entry->string) % NUM_TABLE_SLOTS;
-    ulist_t *slot = &_hashtable[index];
+    ulist_t *slot = &table->table[index];
+    table->collisions = 0u;
 
     if (0u == slot->item_size_bytes)
     {
@@ -72,6 +71,7 @@ hashtable_status_e hashtable_put(hashtable_entry_t *entry)
         // Verify this string key hasn't already been used
         hashtable_entry_t *curr;
         ulist_status_e err = ULIST_OK;
+        table->collisions = slot->num_items;
 
         while (ULIST_END != err)
         {
@@ -93,7 +93,8 @@ hashtable_status_e hashtable_put(hashtable_entry_t *entry)
     return HASHTABLE_OK;
 }
 
-hashtable_status_e hashtable_get(char *string, hashtable_entry_t **entry)
+hashtable_status_e hashtable_get(hashtable_t *table, char *string,
+                                 hashtable_entry_t **entry)
 {
     if ((NULL == entry) || (NULL == string))
     {
@@ -101,7 +102,7 @@ hashtable_status_e hashtable_get(char *string, hashtable_entry_t **entry)
     }
 
     uint32_t index = calculate_hash(string) % NUM_TABLE_SLOTS;
-    ulist_t *slot = &_hashtable[index];
+    ulist_t *slot = &table->table[index];
 
     if (0u == slot->item_size_bytes)
     {
