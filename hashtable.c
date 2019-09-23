@@ -29,6 +29,10 @@ static uint32_t calculate_hash(char *string)
     return hash;
 }
 
+
+/**
+ * @see hashtable_api.h
+ */
 hashtable_status_e hashtable_create(hashtable_t *table, size_t data_size_bytes)
 {
     memset(table, 0, sizeof(hashtable_t));
@@ -36,6 +40,10 @@ hashtable_status_e hashtable_create(hashtable_t *table, size_t data_size_bytes)
     return HASHTABLE_OK;
 }
 
+
+/**
+ * @see hashtable_api.h
+ */
 hashtable_status_e hashtable_destroy(hashtable_t *table)
 {
     for (uint32_t i = 0; i < NUM_TABLE_SLOTS; i++)
@@ -50,6 +58,10 @@ hashtable_status_e hashtable_destroy(hashtable_t *table)
     return HASHTABLE_OK;
 }
 
+
+/**
+ * @see hashtable_api.h
+ */
 hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data)
 {
     if ((NULL == table) || (NULL == key) || (NULL == data))
@@ -108,6 +120,10 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data)
     return HASHTABLE_OK;
 }
 
+
+/**
+ * @see hashtable_api.h
+ */
 hashtable_status_e hashtable_get(hashtable_t *table, char *key, void **data_ptr)
 {
     if ((NULL == table) || (NULL == key) || (NULL == data_ptr))
