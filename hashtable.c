@@ -23,7 +23,7 @@ static uint32_t calculate_hash(char *string)
 
     for (uint32_t i = 0; string[i]; i++)
     {
-        hash += ((uint8_t)string[i]) * 31u;
+        hash += ((uint8_t)string[i])  * i * 31u;
     }
 
     return hash;
