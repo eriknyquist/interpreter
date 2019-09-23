@@ -74,9 +74,14 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data)
         ulist_status_e err = ULIST_OK;
         table->collisions = slot->num_items;
 
-        while (ULIST_END != err)
+        while (1)
         {
             err = ulist_get_next_item(slot, (void **)&curr);
+            if (ULIST_END == err)
+            {
+                break;
+            }
+
             if (ULIST_OK != err)
             {
                 return HASHTABLE_ERROR;
@@ -87,7 +92,6 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data)
                 return HASHTABLE_ITEM_ALREADY_EXISTS;
             }
         }
-
     }
 
     hashtable_entry_t *allocd_entry;

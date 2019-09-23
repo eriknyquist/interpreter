@@ -26,14 +26,19 @@ int main(void)
 
     hashtable_create(&table, sizeof(int));
 
+
     set_value(&table, "value1", 4);
     set_value(&table, "value2", 5);
     set_value(&table, "value3", 6);
-    set_value(&table, "my_thing", 7);
+    set_value(&table, "pops", 7);
+    set_value(&table, "posp", 8);
+    set_value(&table, "my_thing", 9);
 
     print_value(&table, "value1");
     print_value(&table, "value2");
     print_value(&table, "value3");
+    print_value(&table, "pops");
+    print_value(&table, "posp");
     print_value(&table, "my_thing");
     print_value(&table, "myd_thing");
 
