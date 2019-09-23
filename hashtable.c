@@ -37,6 +37,10 @@ hashtable_status_e hashtable_create(hashtable_t *table, size_t data_size_bytes)
 {
     memset(table, 0, sizeof(hashtable_t));
     table->data_size_bytes = data_size_bytes;
+
+    // TODO: make table resizeable
+    table->size = NUM_TABLE_SLOTS;
+
     return HASHTABLE_OK;
 }
 
@@ -55,6 +59,7 @@ hashtable_status_e hashtable_destroy(hashtable_t *table)
         }
     }
 
+    memset(table, 0, sizeof(hashtable_t));
     return HASHTABLE_OK;
 }
 
@@ -117,6 +122,7 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data)
     // Copy string key
     (void) strncpy(allocd_entry->key, key, sizeof(allocd_entry->key));
 
+    table->used += 1u;
     return HASHTABLE_OK;
 }
 

@@ -40,6 +40,8 @@ typedef struct
 {
     ulist_t table[NUM_TABLE_SLOTS]; // Array of unrolled linked lists
     size_t data_size_bytes;         // Data size of a single table entry
+    size_t size;                    // Total number of slots in the table
+    size_t used;                    // Number of slots used in the table
     uint32_t collisions;            // Collision counter (reset for each 'put')
 } hashtable_t;
 
@@ -72,7 +74,7 @@ hashtable_status_e hashtable_destroy(hashtable_t *table);
  * Add an entry to the hashtable.
  *
  * @param table  Pointer to hashtable instance to be destroyed
- * @param key    String key used to access the entry in the hashtable
+ * @param key    Pointer to NULL-terminated string key used to access the entry
  * @param data   Pointer to data for hashtable entry
  *
  * @return       HASHTABLE_OK if successful, #hastable_status_e otherwise
@@ -84,7 +86,7 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data);
  * Fetch an entry from the hashtable.
  *
  * @param table     Pointer to hashtable instance to be destroyed
- * @param key       String key for entry to fetch
+ * @param key       Pointer to NULL-terminated string key for entry to fetch
  * @param data_ptr  Pointer to location to store pointer to fetched entry
  *
  * @return          HASHTABLE_OK if successful, #hastable_status_e otherwise
