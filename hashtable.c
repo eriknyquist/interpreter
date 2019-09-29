@@ -74,8 +74,8 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data)
         return HASHTABLE_INVALID_PARAM;
     }
 
-    uint32_t index = calculate_hash(key) % NUM_TABLE_SLOTS;
-    ulist_t *slot = &table->table[index];
+    uint32_t hash = calculate_hash(key);
+    ulist_t *slot = &table->table[hash % NUM_TABLE_SLOTS];
     table->collisions = 0u;
 
     if (0u == slot->item_size_bytes)
@@ -104,9 +104,9 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data)
                 return HASHTABLE_ERROR;
             }
 
-            if (0 == strcmp(key, curr->key))
+            if (hash == curr->hash)
             {
-                return HASHTABLE_ITEM_ALREADY_EXISTS;
+                return HASHTABLE_HASH_ALREADY_EXISTS;
             }
         }
     }
@@ -119,9 +119,7 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data)
     // Copy data
     (void) memcpy(allocd_entry->data, data, table->data_size_bytes);
 
-    // Copy string key
-    (void) strncpy(allocd_entry->key, key, sizeof(allocd_entry->key));
-
+    allocd_entry->hash = hash;
     table->used += 1u;
     return HASHTABLE_OK;
 }
@@ -137,8 +135,8 @@ hashtable_status_e hashtable_get(hashtable_t *table, char *key, void **data_ptr)
         return HASHTABLE_INVALID_PARAM;
     }
 
-    uint32_t index = calculate_hash(key) % NUM_TABLE_SLOTS;
-    ulist_t *slot = &table->table[index];
+    uint32_t hash = calculate_hash(key);
+    ulist_t *slot = &table->table[hash % NUM_TABLE_SLOTS];
 
     if (0u == slot->item_size_bytes)
     {
@@ -158,7 +156,7 @@ hashtable_status_e hashtable_get(hashtable_t *table, char *key, void **data_ptr)
             return HASHTABLE_ERROR;
         }
 
-        if (0 == strcmp(key, curr->key))
+        if (hash == curr->hash)
         {
             *data_ptr = curr->data;
             return HASHTABLE_OK;

@@ -16,7 +16,7 @@ typedef enum
 {
     HASHTABLE_OK,
     HASHTABLE_NO_ITEM,
-    HASHTABLE_ITEM_ALREADY_EXISTS,
+    HASHTABLE_HASH_ALREADY_EXISTS,
     HASHTABLE_INVALID_PARAM,
     HASHTABLE_MEMORY_ERROR,
     HASHTABLE_ERROR
@@ -28,8 +28,8 @@ typedef enum
  */
 typedef struct
 {
-    char key[MAX_STRING_SIZE];   // String key used to access this item
-    char data[];                 // Pointer to data block; allocated by ulist.c
+    uint32_t hash;   // Hash of the string key for this item
+    char data[];     // Pointer to data block; allocated by ulist.c
 } hashtable_entry_t;
 
 
