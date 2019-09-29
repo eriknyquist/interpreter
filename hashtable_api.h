@@ -5,7 +5,6 @@
 #include "ulist_api.h"
 
 #define NUM_TABLE_SLOTS (128)
-#define MAX_STRING_SIZE (128)
 #define LIST_ITEMS_PER_NODE (10u)
 
 
@@ -15,11 +14,12 @@
 typedef enum
 {
     HASHTABLE_OK,
-    HASHTABLE_NO_ITEM,
-    HASHTABLE_HASH_ALREADY_EXISTS,
-    HASHTABLE_INVALID_PARAM,
-    HASHTABLE_MEMORY_ERROR,
-    HASHTABLE_ERROR
+    HASHTABLE_NO_ITEM,             // No item matching the provided key
+    HASHTABLE_KEY_TOO_LONG,        // Max. key length of 256 bytes exceeded
+    HASHTABLE_HASH_ALREADY_EXISTS, // Item with the provided key already exists
+    HASHTABLE_INVALID_PARAM,       // Invalid parameter passed to function
+    HASHTABLE_MEMORY_ERROR,        // Memory allocation failed
+    HASHTABLE_ERROR                // Unspecified internal error
 } hashtable_status_e;
 
 

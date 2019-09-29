@@ -3,6 +3,7 @@
 #include "hashtable_api.h"
 #include "ulist_api.h"
 
+#define MAX_STRING_SIZE (256)
 
 #define CHECK_ULIST_ERR(func) {        \
     ulist_status_e _err_code = func;   \
@@ -17,16 +18,22 @@
 }                                      \
 
 
-static uint32_t calculate_hash(char *string)
+static hashtable_status_e calculate_hash(char *string, uint32_t *hash)
 {
-    uint32_t hash = 7u;
+    uint32_t calculated_hash = 7u;
 
     for (uint32_t i = 0; string[i]; i++)
     {
-        hash += ((uint8_t)string[i])  * i * 31u;
+        if (i == MAX_STRING_SIZE)
+        {
+            return HASHTABLE_KEY_TOO_LONG;
+        }
+
+        calculated_hash += ((uint8_t)string[i])  * i * 31u;
     }
 
-    return hash;
+    *hash = calculated_hash;
+    return HASHTABLE_OK;
 }
 
 
@@ -74,7 +81,13 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data)
         return HASHTABLE_INVALID_PARAM;
     }
 
-    uint32_t hash = calculate_hash(key);
+    uint32_t hash;
+    hashtable_status_e hash_err = calculate_hash(key, &hash);
+    if (HASHTABLE_OK != hash_err)
+    {
+        return hash_err;
+    }
+
     ulist_t *slot = &table->table[hash % NUM_TABLE_SLOTS];
     table->collisions = 0u;
 
@@ -135,7 +148,13 @@ hashtable_status_e hashtable_get(hashtable_t *table, char *key, void **data_ptr)
         return HASHTABLE_INVALID_PARAM;
     }
 
-    uint32_t hash = calculate_hash(key);
+    uint32_t hash;
+    hashtable_status_e hash_err = calculate_hash(key, &hash);
+    if (HASHTABLE_OK != hash_err)
+    {
+        return hash_err;
+    }
+
     ulist_t *slot = &table->table[hash % NUM_TABLE_SLOTS];
 
     if (0u == slot->item_size_bytes)
