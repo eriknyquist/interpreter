@@ -45,7 +45,7 @@ static void _int_to_float(object_t *object)
     data_object_t *data_obj = (data_object_t *) object;
 
     data_obj->data_type = DATATYPE_FLOAT;
-    data_obj->payload.float_value = (double) data_obj->payload.int_value;
+    data_obj->payload.float_value = (vm_float_t) data_obj->payload.int_value;
 }
 
 
@@ -54,7 +54,7 @@ static void _float_to_int(object_t *object)
     data_object_t *data_obj = (data_object_t *) object;
 
     data_obj->data_type = DATATYPE_INT;
-    data_obj->payload.int_value = (long int) data_obj->payload.float_value;
+    data_obj->payload.int_value = (vm_int_t) data_obj->payload.float_value;
 }
 
 
@@ -68,7 +68,7 @@ static void _arith_int_int(object_t *int_a, object_t *int_b, object_t *result,
     data_result->object.obj_type = OBJTYPE_DATA;
     data_result->data_type = DATATYPE_INT;
 
-    long int result_int;
+    vm_int_t result_int;
 
     switch (arith_type)
     {
@@ -103,27 +103,27 @@ static void _arith_int_float(object_t *int_a, object_t *float_b,
     data_result->object.obj_type = OBJTYPE_DATA;
     data_result->data_type = DATATYPE_FLOAT;
 
-    double result_float;
+    vm_float_t result_float;
 
     switch (arith_type)
     {
         case ARITH_ADD:
-            result_float = (double) data_a->payload.int_value +
+            result_float = (vm_float_t) data_a->payload.int_value +
                            data_b->payload.float_value;
             break;
 
         case ARITH_SUB:
-            result_float = (double) data_a->payload.int_value -
+            result_float = (vm_float_t) data_a->payload.int_value -
                            data_b->payload.float_value;
             break;
 
         case ARITH_MULT:
-            result_float = (double) data_a->payload.int_value *
+            result_float = (vm_float_t) data_a->payload.int_value *
                            data_b->payload.float_value;
             break;
 
         case ARITH_DIV:
-            result_float = (double) data_a->payload.int_value /
+            result_float = (vm_float_t) data_a->payload.int_value /
                            data_b->payload.float_value;
             break;
     }
@@ -142,28 +142,28 @@ static void _arith_float_int(object_t *float_a, object_t *int_b,
     data_result->object.obj_type = OBJTYPE_DATA;
     data_result->data_type = DATATYPE_FLOAT;
 
-    double result_float;
+    vm_float_t result_float;
 
     switch (arith_type)
     {
         case ARITH_ADD:
             result_float = data_a->payload.float_value +
-                           (double) data_b->payload.int_value;
+                           (vm_float_t) data_b->payload.int_value;
             break;
 
         case ARITH_SUB:
             result_float = data_a->payload.float_value -
-                           (double) data_b->payload.int_value;
+                           (vm_float_t) data_b->payload.int_value;
             break;
 
         case ARITH_MULT:
             result_float = data_a->payload.float_value *
-                           (double) data_b->payload.int_value;
+                           (vm_float_t) data_b->payload.int_value;
             break;
 
         case ARITH_DIV:
             result_float = data_a->payload.float_value /
-                           (double) data_b->payload.int_value;
+                           (vm_float_t) data_b->payload.int_value;
             break;
     }
 
@@ -180,7 +180,7 @@ static void _arith_float_float(object_t *float_a, object_t *float_b,
     data_result->object.obj_type = OBJTYPE_DATA;
     data_result->data_type = DATATYPE_FLOAT;
 
-    double result_float;
+    vm_float_t result_float;
 
     switch (arith_type)
     {

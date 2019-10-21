@@ -1,8 +1,10 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "data_types.h"
+#include "vm_api.h"
+#include "common.h"
 #include "type_operations_api.h"
+#include "print_object_api.h"
 
 
 #define CALLSTACK_ITEMS_PER_NODE (32)
@@ -38,43 +40,9 @@ typedef struct
 } data_stack_entry_t;
 
 
-/* Enumeration of all valid opcode values */
-typedef enum
-{
-    OPCODE_NOP,
-    OPCODE_ADD,
-    OPCODE_SUB,
-    OPCODE_MULT,
-    OPCODE_DIV,
-    OPCODE_CONST,
-    OPCODE_END,
-    NUM_OPCODES
-} opcode_e;
-
-
-/* Enumeration of status codes returned by virtual machine functions */
-typedef enum
-{
-    VM_OK,
-    VM_MEMORY_ERROR,
-    VM_INVALID_PARAM,
-    VM_ERROR
-} vm_status_e;
-
-
-/* Type of an encoded opcode */
-typedef uint8_t opcode_t;
-
-
 /* Handler function for opcodes */
 typedef opcode_t *(*op_handler_t)(opcode_t *, callstack_frame_t *);
 
-
-/* Structure for data representing a VM instance */
-typedef struct
-{
-    callstack_t callstack;
-} vm_instance_t;
 
 
 static opcode_t *_arithmetic_op(opcode_t *opcode, callstack_frame_t *frame,
@@ -129,15 +97,63 @@ static opcode_t *_handle_div(opcode_t *opcode, callstack_frame_t *frame)
 }
 
 
-static opcode_t *_handle_const(opcode_t *opcode, callstack_frame_t *frame)
+static opcode_t *_handle_int(opcode_t *opcode, callstack_frame_t *frame)
 {
+    data_stack_entry_t entry;
+
+    entry.payload.data_object.object.obj_type = OBJTYPE_DATA;
+    entry.payload.data_object.data_type = DATATYPE_INT;
+
+    // Increment past the opcode
+    opcode += 1;
+
+    // Grab int value after opcode
+    entry.payload.data_object.payload.int_value = *((vm_int_t *) opcode);
+
+    // Push int value onto stack
+    CHECK_ULIST_ERR(ulist_append_item(&frame->data, &entry), NULL);
+
+    // Increment past the int value
+    return ADVANCE_IP(opcode, sizeof(vm_int_t));
+}
+
+
+static opcode_t *_handle_float(opcode_t *opcode, callstack_frame_t *frame)
+{
+    data_stack_entry_t entry;
+
+    entry.payload.data_object.object.obj_type = OBJTYPE_DATA;
+    entry.payload.data_object.data_type = DATATYPE_FLOAT;
+
+    // Increment past the opcode
+    opcode += 1;
+
+    // Grab int value after opcode
+    entry.payload.data_object.payload.float_value = *((vm_float_t *) opcode);
+
+    // Push int value onto stack
+    CHECK_ULIST_ERR(ulist_append_item(&frame->data, &entry), NULL);
+
+    // Increment past the int value
+    return ADVANCE_IP(opcode, sizeof(vm_float_t));
+}
+
+
+static opcode_t *_handle_print(opcode_t *opcode, callstack_frame_t *frame)
+{
+    data_stack_entry_t entry;
+
+    CHECK_ULIST_ERR(ulist_pop_item(&frame->data, frame->data.num_items, &entry), NULL);
+
+    print_object(&entry.payload.object);
+
     return opcode + 1;
 }
 
 
 static opcode_t *_handle_end(opcode_t *opcode, callstack_frame_t *frame)
 {
-    return opcode + 1;
+    return opcode;
 }
 
 
@@ -147,7 +163,9 @@ static op_handler_t _op_handlers[NUM_OPCODES] = {
     _handle_sub,              // OPCODE_SUB
     _handle_mult,             // OPCODE_MULT
     _handle_div,              // OPCODE_DIV
-    _handle_const,            // OPCODE_CONST
+    _handle_int,              // OPCODE_INT
+    _handle_float,            // OPCODE_FLOAT
+    _handle_print,            // OPCODE_PRINT
     _handle_end               // OPCODE_END
 };
 

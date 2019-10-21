@@ -1,8 +1,12 @@
 #ifndef DATA_TYPES_H_
 #define DATA_TYPES_H_
 
-
+#include <stdint.h>
 #include "ulist_api.h"
+
+/* Mapping between C types and virtual machine types */
+typedef int32_t vm_int_t;
+typedef double vm_float_t;
 
 
 /**
@@ -43,9 +47,9 @@ typedef struct
     object_t object;
     data_type_e data_type;
     union {
-        long int int_value;  // DATATYPE_INT
-        double float_value;  // DATATYPE_FLOAT
-        char *string;        // DATATYPE_STRING
+        vm_int_t int_value;      // DATATYPE_INT
+        vm_float_t float_value;  // DATATYPE_FLOAT
+        char *string;            // DATATYPE_STRING
     } payload;
 } data_object_t;
 
