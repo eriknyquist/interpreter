@@ -1,7 +1,7 @@
 #ifndef BYTECODE_API_H_
 #define BYTECODE_API_H_
 
-
+#include <stdio.h>
 #include <stdint.h>
 
 #include "data_types.h"
@@ -29,6 +29,9 @@ bytecode_status_e bytecode_create(bytecode_t *program);
 
 
 bytecode_status_e bytecode_destroy(bytecode_t *program);
+
+
+void bytecode_dump_raw(bytecode_t *program);
 
 
 bytecode_status_e bytecode_emit_int(bytecode_t *program, vm_int_t value);

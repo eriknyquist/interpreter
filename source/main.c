@@ -16,7 +16,7 @@ int main(void)
     }
 
     (void) bytecode_emit_int(&program, 26);
-    (void) bytecode_emit_float(&program, 17.0);
+    (void) bytecode_emit_float(&program, 17.298);
     (void) bytecode_emit_add(&program);
     (void) bytecode_emit_print(&program);
 

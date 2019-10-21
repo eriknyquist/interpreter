@@ -56,6 +56,17 @@ bytecode_status_e bytecode_destroy(bytecode_t *program)
 }
 
 
+void bytecode_dump_raw(bytecode_t *program)
+{
+    for (size_t i = 0; i < program->used_bytes; i++)
+    {
+        printf("%02x ", program->bytecode[i]);
+    }
+
+    printf("\n");
+}
+
+
 bytecode_status_e bytecode_emit_int(bytecode_t *program, vm_int_t value)
 {
     if (NULL == program)
@@ -66,8 +77,9 @@ bytecode_status_e bytecode_emit_int(bytecode_t *program, vm_int_t value)
     size_t op_bytes = sizeof(vm_int_t) + 1;
     REQUIRE_SPACE(program, op_bytes);
 
-    program->bytecode[program->used_bytes] = (opcode_t) OPCODE_INT;
-    *((vm_int_t *) (program->bytecode + 1)) = value;
+    opcode_t *ip = program->bytecode + program->used_bytes;
+    *ip = (opcode_t) OPCODE_INT;
+    *((vm_int_t *) (ip + 1)) = value;
 
     program->used_bytes += op_bytes;
     return BYTECODE_OK;
@@ -84,8 +96,9 @@ bytecode_status_e bytecode_emit_float(bytecode_t *program, vm_float_t value)
     size_t op_bytes = sizeof(vm_float_t) + 1;
     REQUIRE_SPACE(program, op_bytes);
 
-    program->bytecode[program->used_bytes] = (opcode_t) OPCODE_FLOAT;
-    *((vm_float_t *) (program->bytecode + 1)) = value;
+    opcode_t *ip = program->bytecode + program->used_bytes;
+    *ip = (opcode_t) OPCODE_FLOAT;
+    *((vm_float_t *) (ip + 1)) = value;
 
     program->used_bytes += op_bytes;
     return BYTECODE_OK;

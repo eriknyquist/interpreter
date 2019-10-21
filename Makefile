@@ -1,6 +1,7 @@
 SRC_DIR := source
 OUTPUT_DIR := build
-SRC_SUBDIRS := $(SRC_DIR)/runtime \
+SRC_SUBDIRS := $(SRC_DIR) \
+			   $(SRC_DIR)/runtime \
 			   $(SRC_DIR)/frontend \
 			   $(SRC_DIR)/backend \
 			   $(SRC_DIR)/common
