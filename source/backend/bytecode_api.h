@@ -5,7 +5,6 @@
 #include <stdint.h>
 
 #include "data_types.h"
-#include "vm_api.h"
 
 
 typedef enum
@@ -17,12 +16,32 @@ typedef enum
 } bytecode_status_e;
 
 
+/* Type of an encoded opcode */
+typedef uint8_t opcode_t;
+
+
 typedef struct
 {
     opcode_t *bytecode;
     size_t total_bytes;
     size_t used_bytes;
 } bytecode_t;
+
+
+/* Enumeration of all valid opcode values */
+typedef enum
+{
+    OPCODE_NOP,
+    OPCODE_ADD,
+    OPCODE_SUB,
+    OPCODE_MULT,
+    OPCODE_DIV,
+    OPCODE_INT,
+    OPCODE_FLOAT,
+    OPCODE_PRINT,
+    OPCODE_END,
+    NUM_OPCODES
+} opcode_e;
 
 
 bytecode_status_e bytecode_create(bytecode_t *program);

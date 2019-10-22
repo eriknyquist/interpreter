@@ -9,7 +9,7 @@ void print_object(object_t *object)
         printf("NULL\n");
     }
 
-    if (OBJTYPE_DATA != object)
+    if (OBJTYPE_DATA != object->obj_type)
     {
         printf("Unable to print object type %d\n", object->obj_type);
         return;

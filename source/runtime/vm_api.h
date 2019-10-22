@@ -3,22 +3,7 @@
 
 
 #include "data_types.h"
-
-
-/* Enumeration of all valid opcode values */
-typedef enum
-{
-    OPCODE_NOP,
-    OPCODE_ADD,
-    OPCODE_SUB,
-    OPCODE_MULT,
-    OPCODE_DIV,
-    OPCODE_INT,
-    OPCODE_FLOAT,
-    OPCODE_PRINT,
-    OPCODE_END,
-    NUM_OPCODES
-} opcode_e;
+#include "bytecode_api.h"
 
 
 /* Enumeration of status codes returned by virtual machine functions */
@@ -31,15 +16,17 @@ typedef enum
 } vm_status_e;
 
 
-/* Type of an encoded opcode */
-typedef uint8_t opcode_t;
-
-
 /* Structure for data representing a VM instance */
 typedef struct
 {
     callstack_t callstack;
 } vm_instance_t;
+
+
+vm_status_e vm_create(vm_instance_t *instance);
+
+
+vm_status_e vm_execute(vm_instance_t *instance, opcode_t *bytecode);
 
 
 #endif /* VM_API_H_ */

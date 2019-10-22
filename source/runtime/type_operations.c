@@ -87,6 +87,10 @@ static void _arith_int_int(object_t *int_a, object_t *int_b, object_t *result,
         case ARITH_DIV:
             result_int = data_a->payload.int_value / data_b->payload.int_value;
             break;
+
+        default:
+            result_int = 0;
+            break;
     }
 
     data_result->payload.int_value = result_int;
@@ -125,6 +129,10 @@ static void _arith_int_float(object_t *int_a, object_t *float_b,
         case ARITH_DIV:
             result_float = (vm_float_t) data_a->payload.int_value /
                            data_b->payload.float_value;
+            break;
+
+        default:
+            result_float = 0.0f;
             break;
     }
 
@@ -165,6 +173,10 @@ static void _arith_float_int(object_t *float_a, object_t *int_b,
             result_float = data_a->payload.float_value /
                            (vm_float_t) data_b->payload.int_value;
             break;
+
+        default:
+            result_float = 0.0f;
+            break;
     }
 
     data_result->payload.float_value = result_float;
@@ -203,6 +215,10 @@ static void _arith_float_float(object_t *float_a, object_t *float_b,
             result_float = data_a->payload.float_value /
                            data_b->payload.float_value;
             break;
+
+        default:
+            result_float = 0.0f;
+            break;
     }
 
     data_result->payload.float_value = result_float;
@@ -220,8 +236,8 @@ type_status_e type_arithmetic(object_t *lhs, object_t *rhs, object_t *result,
     data_object_t *rdata = (data_object_t *) rhs;
     data_object_t *ldata = (data_object_t *) lhs;
 
-    type_operations_t *ops = &_type_ops[rdata->data_type];
-    arith_func_t arith_func = ops->arith_functions[ldata->data_type];
+    type_operations_t *ops = &_type_ops[ldata->data_type];
+    arith_func_t arith_func = ops->arith_functions[rdata->data_type];
 
     if (NULL == arith_func)
     {

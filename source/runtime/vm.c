@@ -5,6 +5,7 @@
 #include "common.h"
 #include "type_operations_api.h"
 #include "print_object_api.h"
+#include "bytecode_api.h"
 
 
 #define CALLSTACK_ITEMS_PER_NODE (32)
@@ -50,15 +51,15 @@ static opcode_t *_arithmetic_op(opcode_t *opcode, callstack_frame_t *frame,
 {
     data_stack_entry_t lhs, rhs, result;
 
-    CHECK_ULIST_ERR(ulist_pop_item(&frame->data, frame->data.num_items, &rhs), NULL);
-    CHECK_ULIST_ERR(ulist_pop_item(&frame->data, frame->data.num_items, &lhs), NULL);
+    CHECK_ULIST_ERR(ulist_pop_item(&frame->data, frame->data.num_items - 1, &rhs), NULL);
+    CHECK_ULIST_ERR(ulist_pop_item(&frame->data, frame->data.num_items - 1, &lhs), NULL);
 
     type_status_e err = type_arithmetic(&lhs.payload.object, &rhs.payload.object,
                                         &result.payload.object, arith_type);
 
     if (TYPE_OK != err)
     {
-        RUNTIME_ERR("Can't do that arithmetic");
+        RUNTIME_ERR("Can't do that arithmetic\n");
         return NULL;
     }
 
@@ -143,7 +144,7 @@ static opcode_t *_handle_print(opcode_t *opcode, callstack_frame_t *frame)
 {
     data_stack_entry_t entry;
 
-    CHECK_ULIST_ERR(ulist_pop_item(&frame->data, frame->data.num_items, &entry), NULL);
+    CHECK_ULIST_ERR(ulist_pop_item(&frame->data, frame->data.num_items - 1, &entry), NULL);
 
     print_object(&entry.payload.object);
 
@@ -209,7 +210,7 @@ vm_status_e vm_execute(vm_instance_t *instance, opcode_t *bytecode)
     {
         if (NUM_OPCODES <= *bytecode)
         {
-            RUNTIME_ERR("Unrecognised opcode %d", *bytecode);
+            RUNTIME_ERR("Unrecognised opcode %d\n", *bytecode);
             return VM_ERROR;
         }
 
@@ -219,7 +220,7 @@ vm_status_e vm_execute(vm_instance_t *instance, opcode_t *bytecode)
         bytecode = handler(bytecode, instance->callstack.current_frame);
         if (NULL == bytecode)
         {
-            RUNTIME_ERR("Error executing instruction %d", op);
+            RUNTIME_ERR("Error executing instruction %d\n", op);
             return VM_ERROR;
         }
     }

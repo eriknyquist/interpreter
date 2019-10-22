@@ -19,7 +19,12 @@ CFLAGS += -Wall $(INCLUDE_FLAGS)
 
 .PHONY: clean
 
+
+all: CFLAGS += -O3
 all: $(BUILD_OUTPUT)
+
+debug: CFLAGS += -g -O0
+debug: $(BUILD_OUTPUT)
 
 $(BUILD_OUTPUT): output_dir $(OBJ_FILES)
 	$(CC) $(LFLAGS) $(OBJ_FILES) -o $@

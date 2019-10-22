@@ -4,7 +4,10 @@
 #include "data_types.h"
 
 
-disassemble_status_e disassemble_bytecode(bytecode_t *program)
+/**
+ * @see diassemble_api.h
+ */
+disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t num_instructions)
 {
     if (NULL == program)
     {
@@ -13,9 +16,15 @@ disassemble_status_e disassemble_bytecode(bytecode_t *program)
 
     uint8_t *ip;
     size_t bytes_consumed = 0;
+    size_t instructions_consumed = 0;
 
     while (bytes_consumed < program->used_bytes)
     {
+        if (num_instructions && (instructions_consumed >= num_instructions))
+        {
+            break;
+        }
+
         ip = program->bytecode + bytes_consumed;
         printf("%08lx ", bytes_consumed);
 
@@ -73,6 +82,7 @@ disassemble_status_e disassemble_bytecode(bytecode_t *program)
         }
 
         printf("\n");
+        instructions_consumed += 1;
     }
 
     return DISASSEMBLE_OK;

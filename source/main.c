@@ -1,7 +1,9 @@
 #include <stdio.h>
 
+#include "vm_api.h"
 #include "bytecode_api.h"
 #include "disassemble_api.h"
+#include "vm_api.h"
 
 
 int main(void)
@@ -15,12 +17,32 @@ int main(void)
         return bytecode_err;
     }
 
-    (void) bytecode_emit_int(&program, 26);
-    (void) bytecode_emit_float(&program, 17.298);
+    (void) bytecode_emit_int(&program, 3);
+    (void) bytecode_emit_float(&program, 2.0);
     (void) bytecode_emit_add(&program);
+    (void) bytecode_emit_int(&program, 2);
+    (void) bytecode_emit_mult(&program);
     (void) bytecode_emit_print(&program);
+    (void) bytecode_emit_end(&program);
 
     bytecode_dump_raw(&program);
 
-    disassemble_bytecode(&program);
+    disassemble_bytecode(&program, 0);
+
+    vm_status_e vm_err;
+    vm_instance_t ins;
+
+    if ((vm_err = vm_create(&ins)) != VM_OK)
+    {
+        printf("vm_create failed, status %d\n", vm_err);
+        return vm_err;
+    }
+
+    if ((vm_err = vm_execute(&ins, program.bytecode)) != VM_OK)
+    {
+        printf("vm_execute failed, status %d\n", vm_err);
+        return vm_err;
+    }
+
+    bytecode_destroy(&program);
 }
