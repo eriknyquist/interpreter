@@ -1,5 +1,6 @@
 #include <stdio.h>
 
+#include "byte_string_api.h"
 #include "disassemble_api.h"
 #include "data_types.h"
 
@@ -51,7 +52,7 @@ disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t num_instru
                 break;
 
             case OPCODE_DIV:
-                printf("ADD");
+                printf("DIV");
                 bytes_consumed += 1;
                 break;
 
@@ -63,6 +64,21 @@ disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t num_instru
             case OPCODE_FLOAT:
                 printf("FLOAT %.4f", *((vm_float_t *) (ip + 1)));
                 bytes_consumed += sizeof(vm_float_t) + 1;
+                break;
+
+            case OPCODE_STRING:
+                ip += 1;
+
+                uint32_t string_size = *((uint32_t *) ip);
+                ip += sizeof(uint32_t);
+
+                printf("STRING ");
+                for (uint32_t i = 0; i < string_size; i++)
+                {
+                    printf("%c", ip[i]);
+                }
+
+                bytes_consumed += 1 + sizeof(uint32_t) + string_size;
                 break;
 
             case OPCODE_PRINT:

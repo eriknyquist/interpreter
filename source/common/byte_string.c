@@ -76,7 +76,7 @@ byte_string_status_e byte_string_create(byte_string_t *string)
 }
 
 
-byte_string_status_e byte_string_add_bytes(byte_string_t *string, char *bytes,
+byte_string_status_e byte_string_add_bytes(byte_string_t *string, uint8_t *bytes,
                                            size_t num_bytes)
 {
     if (NULL == string)

@@ -38,6 +38,7 @@ typedef enum
     OPCODE_DIV,
     OPCODE_INT,
     OPCODE_FLOAT,
+    OPCODE_STRING,
     OPCODE_PRINT,
     OPCODE_END,
     NUM_OPCODES
@@ -57,6 +58,9 @@ bytecode_status_e bytecode_emit_int(bytecode_t *program, vm_int_t value);
 
 
 bytecode_status_e bytecode_emit_float(bytecode_t *program, vm_float_t value);
+
+
+bytecode_status_e bytecode_emit_string(bytecode_t *program, char *value);
 
 
 bytecode_status_e bytecode_emit_add(bytecode_t *program);

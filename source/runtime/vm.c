@@ -12,20 +12,31 @@
 #define DATASTACK_ITEMS_PER_NODE (32)
 
 
-#define CHECK_ULIST_ERR(func, return_err) { \
-    ulist_status_e _err_code = func;        \
-    if (ULIST_ERROR_MEM == _err_code)       \
-    {                                       \
-        return return_err;                  \
-    }                                       \
-    else if (ULIST_OK != _err_code)         \
-    {                                       \
-        return return_err;                  \
-    }                                       \
+#define RUNTIME_ERR(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
+
+
+#define CHECK_ULIST_ERR(func) {                                               \
+    ulist_status_e _err_code = func;                                          \
+    if (ULIST_ERROR_MEM == _err_code)                                         \
+    {                                                                         \
+        return VM_MEMORY_ERROR;                                               \
+    }                                                                         \
+    else if (ULIST_OK != _err_code)                                           \
+    {                                                                         \
+        return VM_ERROR;                                                      \
+    }                                                                         \
 }
 
 
-#define RUNTIME_ERR(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
+#define CHECK_ULIST_ERR_RT(func)                                              \
+    do {                                                                      \
+        ulist_status_e _err_code = func;                                      \
+        if (ULIST_OK != _err_code)                                            \
+        {   RUNTIME_ERR("ulist_t operation failed, status %d", _err_code);    \
+            return NULL;                                                      \
+        }                                                                     \
+    }                                                                         \
+    while(0);
 
 
 /**
@@ -51,8 +62,8 @@ static opcode_t *_arithmetic_op(opcode_t *opcode, callstack_frame_t *frame,
 {
     data_stack_entry_t lhs, rhs, result;
 
-    CHECK_ULIST_ERR(ulist_pop_item(&frame->data, frame->data.num_items - 1, &rhs), NULL);
-    CHECK_ULIST_ERR(ulist_pop_item(&frame->data, frame->data.num_items - 1, &lhs), NULL);
+    CHECK_ULIST_ERR_RT(ulist_pop_item(&frame->data, frame->data.num_items - 1, &rhs));
+    CHECK_ULIST_ERR_RT(ulist_pop_item(&frame->data, frame->data.num_items - 1, &lhs));
 
     type_status_e err = type_arithmetic(&lhs.payload.object, &rhs.payload.object,
                                         &result.payload.object, arith_type);
@@ -63,7 +74,7 @@ static opcode_t *_arithmetic_op(opcode_t *opcode, callstack_frame_t *frame,
         return NULL;
     }
 
-    CHECK_ULIST_ERR(ulist_append_item(&frame->data, &result), NULL);
+    CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &result));
     return opcode + 1;
 }
 
@@ -106,16 +117,16 @@ static opcode_t *_handle_int(opcode_t *opcode, callstack_frame_t *frame)
     entry.payload.data_object.data_type = DATATYPE_INT;
 
     // Increment past the opcode
-    opcode += 1;
+    opcode = (opcode_t *) INCREMENT_PTR_BYTES(opcode, 1);
 
     // Grab int value after opcode
     entry.payload.data_object.payload.int_value = *((vm_int_t *) opcode);
 
     // Push int value onto stack
-    CHECK_ULIST_ERR(ulist_append_item(&frame->data, &entry), NULL);
+    CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &entry));
 
     // Increment past the int value
-    return ADVANCE_IP(opcode, sizeof(vm_int_t));
+    return INCREMENT_PTR_BYTES(opcode, sizeof(vm_int_t));
 }
 
 
@@ -127,16 +138,55 @@ static opcode_t *_handle_float(opcode_t *opcode, callstack_frame_t *frame)
     entry.payload.data_object.data_type = DATATYPE_FLOAT;
 
     // Increment past the opcode
-    opcode += 1;
+    opcode = (opcode_t *) INCREMENT_PTR_BYTES(opcode, 1);
 
     // Grab int value after opcode
     entry.payload.data_object.payload.float_value = *((vm_float_t *) opcode);
 
     // Push int value onto stack
-    CHECK_ULIST_ERR(ulist_append_item(&frame->data, &entry), NULL);
+    CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &entry));
 
     // Increment past the int value
-    return ADVANCE_IP(opcode, sizeof(vm_float_t));
+    return INCREMENT_PTR_BYTES(opcode, sizeof(vm_float_t));
+}
+
+
+static opcode_t *_handle_string(opcode_t *opcode, callstack_frame_t *frame)
+{
+    data_stack_entry_t entry;
+
+    entry.payload.data_object.object.obj_type = OBJTYPE_DATA;
+    entry.payload.data_object.data_type = DATATYPE_STRING;
+
+    // Increment past the opcode
+    opcode = (opcode_t *) INCREMENT_PTR_BYTES(opcode, 1);
+
+    // Read size of the upcoming string data
+    uint32_t string_size = *(uint32_t *) opcode;
+
+    // Increment past the string size
+    opcode = (opcode_t *) INCREMENT_PTR_BYTES(opcode, sizeof(uint32_t));
+
+    // Set up new byte string object
+    byte_string_t *string = &entry.payload.data_object.payload.string_value;
+
+    if (BYTE_STRING_OK != byte_string_create(string))
+    {
+        return NULL;
+    }
+
+    /* Read string data into byte string object (+1 to ensure we copy the
+     * trailing null byte as well) */
+    if (BYTE_STRING_OK != byte_string_add_bytes(string, opcode, string_size + 1))
+    {
+        return NULL;
+    }
+
+    // Push byte string value onto stack
+    CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &entry));
+
+    // Increment past string data
+    return INCREMENT_PTR_BYTES(opcode, string_size);
 }
 
 
@@ -144,11 +194,11 @@ static opcode_t *_handle_print(opcode_t *opcode, callstack_frame_t *frame)
 {
     data_stack_entry_t entry;
 
-    CHECK_ULIST_ERR(ulist_pop_item(&frame->data, frame->data.num_items - 1, &entry), NULL);
+    CHECK_ULIST_ERR_RT(ulist_pop_item(&frame->data, frame->data.num_items - 1, &entry));
 
     print_object(&entry.payload.object);
 
-    return opcode + 1;
+    return INCREMENT_PTR_BYTES(opcode, 1);
 }
 
 
@@ -166,6 +216,7 @@ static op_handler_t _op_handlers[NUM_OPCODES] = {
     _handle_div,              // OPCODE_DIV
     _handle_int,              // OPCODE_INT
     _handle_float,            // OPCODE_FLOAT
+    _handle_string,           // OPCODE_STRING
     _handle_print,            // OPCODE_PRINT
     _handle_end               // OPCODE_END
 };
@@ -177,11 +228,11 @@ static vm_status_e init_next_callstack_frame(callstack_t *callstack)
 
     // Get pointer to the top stack frame
     CHECK_ULIST_ERR(ulist_alloc(&callstack->frames,
-                    callstack->frames.num_items, (void **) &top_frame), VM_ERROR);
+                    callstack->frames.num_items, (void **) &top_frame));
 
     // Initialize data stack for the top callstack frame
     CHECK_ULIST_ERR(ulist_create(&top_frame->data, sizeof(data_stack_entry_t),
-                                 DATASTACK_ITEMS_PER_NODE), VM_ERROR);
+                                 DATASTACK_ITEMS_PER_NODE));
 
     callstack->current_frame = top_frame;
     return VM_OK;
@@ -198,7 +249,7 @@ vm_status_e vm_create(vm_instance_t *instance)
     // Create callstack
     CHECK_ULIST_ERR(ulist_create(&instance->callstack.frames,
                                  sizeof(callstack_frame_t),
-                                 CALLSTACK_ITEMS_PER_NODE), VM_MEMORY_ERROR);
+                                 CALLSTACK_ITEMS_PER_NODE));
 
     return init_next_callstack_frame(&instance->callstack);
 }
@@ -208,8 +259,7 @@ vm_status_e vm_destroy(vm_instance_t *instance)
 {
     callstack_frame_t *frame = NULL;
 
-    CHECK_ULIST_ERR(ulist_set_iteration_start_index(&instance->callstack.frames, 0u),
-                    VM_ERROR);
+    CHECK_ULIST_ERR(ulist_set_iteration_start_index(&instance->callstack.frames, 0u));
 
     /* Iterate over callstack frames, and destroy the list used for the data
      * stack in each callstack frame */
@@ -229,11 +279,11 @@ vm_status_e vm_destroy(vm_instance_t *instance)
         }
 
         // Destroy datastack for this frame
-        CHECK_ULIST_ERR(ulist_destroy(&frame->data), VM_MEMORY_ERROR);
+        CHECK_ULIST_ERR(ulist_destroy(&frame->data));
     }
 
     // Finally, destroy the list that holds the callstack
-    CHECK_ULIST_ERR(ulist_destroy(&instance->callstack.frames), VM_MEMORY_ERROR);
+    CHECK_ULIST_ERR(ulist_destroy(&instance->callstack.frames));
 
     return VM_OK;
 }

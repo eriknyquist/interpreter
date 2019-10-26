@@ -2,7 +2,11 @@
 #define COMMON_H_
 
 
-#define ADVANCE_IP(ip, bytes) ((opcode_t *) (((char *) (ip)) + (bytes)))
+#include <stdint.h>
+
+
+#define INCREMENT_PTR_BYTES(ptr, bytes)   (((uint8_t *)(ptr)) + (bytes))
+
 
 
 #endif /* COMMON_H_ */

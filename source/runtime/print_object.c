@@ -27,8 +27,12 @@ void print_object(object_t *object)
             printf("%.4f\n", data_obj->payload.float_value);
             break;
 
+        case DATATYPE_STRING:
+            printf("%s\n", data_obj->payload.string_value.bytes);
+            break;
+
         default:
-            printf("TODO: not implemented yet");
+            printf("Unable to print data type %d\n", data_obj->data_type);
             break;
     }
 }

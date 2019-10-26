@@ -1,4 +1,6 @@
 #include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
 
 #include "bytecode_api.h"
 #include "common.h"
@@ -20,7 +22,7 @@
                 return BYTECODE_MEMORY_ERROR;                                 \
             }                                                                 \
         }                                                                     \
-    } while(0);
+    } while(0)
 
 
 bytecode_status_e bytecode_create(bytecode_t *program)
@@ -79,7 +81,9 @@ bytecode_status_e bytecode_emit_int(bytecode_t *program, vm_int_t value)
 
     opcode_t *ip = program->bytecode + program->used_bytes;
     *ip = (opcode_t) OPCODE_INT;
-    *((vm_int_t *) (ip + 1)) = value;
+    ip = (opcode_t *) INCREMENT_PTR_BYTES(ip, 1);
+
+    *((vm_int_t *) ip) = value;
 
     program->used_bytes += op_bytes;
     return BYTECODE_OK;
@@ -98,7 +102,42 @@ bytecode_status_e bytecode_emit_float(bytecode_t *program, vm_float_t value)
 
     opcode_t *ip = program->bytecode + program->used_bytes;
     *ip = (opcode_t) OPCODE_FLOAT;
-    *((vm_float_t *) (ip + 1)) = value;
+    ip = (opcode_t *) INCREMENT_PTR_BYTES(ip, 1);
+
+    *((vm_float_t *) ip) = value;
+
+    program->used_bytes += op_bytes;
+    return BYTECODE_OK;
+}
+
+
+bytecode_status_e bytecode_emit_string(bytecode_t *program, char *value)
+{
+    if (NULL == program)
+    {
+        return BYTECODE_INVALID_PARAM;
+    }
+
+    size_t string_bytes = strlen(value);
+    if (string_bytes > UINT32_MAX)
+    {
+        return BYTECODE_ERROR;
+    }
+
+    size_t op_bytes = sizeof(uint32_t) + string_bytes + 1;
+    REQUIRE_SPACE(program, op_bytes);
+
+    opcode_t *ip = program->bytecode + program->used_bytes;
+    *ip = (opcode_t) OPCODE_STRING;
+    ip = (opcode_t *) INCREMENT_PTR_BYTES(ip, 1);
+
+    *((uint32_t *) ip) = (uint32_t) string_bytes;
+
+    if (NULL != value)
+    {
+        ip = (opcode_t *) INCREMENT_PTR_BYTES(ip, sizeof(uint32_t));
+        (void) memcpy(ip, value, string_bytes);
+    }
 
     program->used_bytes += op_bytes;
     return BYTECODE_OK;

@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "ulist_api.h"
+#include "byte_string_api.h"
 
 
 /* Mapping between C types and virtual machine types */
@@ -48,9 +49,9 @@ typedef struct
     object_t object;
     data_type_e data_type;
     union {
-        vm_int_t int_value;      // DATATYPE_INT
-        vm_float_t float_value;  // DATATYPE_FLOAT
-        char *string;            // DATATYPE_STRING
+        vm_int_t int_value;               // DATATYPE_INT
+        vm_float_t float_value;           // DATATYPE_FLOAT
+        byte_string_t string_value;       // DATATYPE_STRING
     } payload;
 } data_object_t;
 

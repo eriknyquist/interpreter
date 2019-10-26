@@ -2,6 +2,9 @@
 #define BYTE_STRING_API_H_
 
 
+#include <stdint.h>
+
+
 /* Enumeration of all status codes returned by byte_string_api functions */
 typedef enum
 {
@@ -28,7 +31,7 @@ byte_string_status_e byte_string_destroy(byte_string_t *string);
 byte_string_status_e byte_string_create(byte_string_t *string);
 
 
-byte_string_status_e byte_string_add_bytes(byte_string_t *string, char *bytes,
+byte_string_status_e byte_string_add_bytes(byte_string_t *string, uint8_t *bytes,
                                            size_t num_bytes);
 
 
