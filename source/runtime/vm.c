@@ -204,6 +204,41 @@ vm_status_e vm_create(vm_instance_t *instance)
 }
 
 
+vm_status_e vm_destroy(vm_instance_t *instance)
+{
+    callstack_frame_t *frame = NULL;
+
+    CHECK_ULIST_ERR(ulist_set_iteration_start_index(&instance->callstack.frames, 0u),
+                    VM_ERROR);
+
+    /* Iterate over callstack frames, and destroy the list used for the data
+     * stack in each callstack frame */
+    while (1)
+    {
+        ulist_status_e err;
+
+        err = ulist_get_next_item(&instance->callstack.frames, (void **) frame);
+        if (ULIST_END == err)
+        {
+            // No more frames in callstack
+            break;
+        }
+        else if (ULIST_OK != err)
+        {
+            return VM_ERROR;
+        }
+
+        // Destroy datastack for this frame
+        CHECK_ULIST_ERR(ulist_destroy(&frame->data), VM_MEMORY_ERROR);
+    }
+
+    // Finally, destroy the list that holds the callstack
+    CHECK_ULIST_ERR(ulist_destroy(&instance->callstack.frames), VM_MEMORY_ERROR);
+
+    return VM_OK;
+}
+
+
 vm_status_e vm_execute(vm_instance_t *instance, opcode_t *bytecode)
 {
     while (OPCODE_END != (opcode_e) *bytecode)
