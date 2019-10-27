@@ -2,18 +2,11 @@
 #define OPCODE_HANDLERS_H_
 
 
-#define RUNTIME_ERR(error_code, fmt, ...)                                     \
-    do {                                                                      \
-        fprintf(stderr, fmt, ##__VA_ARGS__);                                  \
-        runtime_error_set(error_code);                                        \
-    }                                                                         \
-    while(0)
-
-
 #include "data_types.h"
 #include "bytecode_api.h"
 #include "type_operations_api.h"
 #include "runtime_error_api.h"
+#include "runtime_common.h"
 
 
 /**

@@ -3,66 +3,7 @@
 #include "ulist_api.h"
 #include "opcode_handlers.h"
 #include "common.h"
-
-
-#define CHECK_ULIST_ERR_RT(func)                                              \
-    do {                                                                      \
-        ulist_status_e __err_code = func;                                     \
-                                                                              \
-        if (ULIST_OK != __err_code)                                           \
-        {                                                                     \
-            runtime_error_e __rt_err;                                         \
-            if (ULIST_ERROR_MEM == __err_code)                                \
-            {                                                                 \
-                __rt_err = RUNTIME_ERROR_MEMORY;                              \
-            }                                                                 \
-            else                                                              \
-            {                                                                 \
-                __rt_err = RUNTIME_ERROR_INTERNAL;                            \
-            }                                                                 \
-                                                                              \
-            RUNTIME_ERR(__rt_err,                                             \
-                        "ulist_t operation failed, status %d", __err_code);   \
-            return NULL;                                                      \
-        }                                                                     \
-    }                                                                         \
-    while(0);
-
-
-#define CHECK_BYTESTR_ERR_RT(func)                                            \
-    do {                                                                      \
-        byte_string_status_e __err_code = func;                               \
-                                                                              \
-        if (BYTE_STRING_OK != __err_code)                                     \
-        {                                                                     \
-            runtime_error_e __rt_err;                                         \
-            if (BYTE_STRING_MEMORY_ERROR == __err_code)                       \
-            {                                                                 \
-                __rt_err = RUNTIME_ERROR_MEMORY;                              \
-            }                                                                 \
-            else                                                              \
-            {                                                                 \
-                __rt_err = RUNTIME_ERROR_INTERNAL;                            \
-            }                                                                 \
-                                                                              \
-            RUNTIME_ERR(__rt_err,                                             \
-                        "byte_string_t operation failed, status %d",          \
-                        __err_code);                                          \
-            return NULL;                                                      \
-        }                                                                     \
-    }                                                                         \
-    while(0)
-
-
-#define FREE_DATA_OBJECT(obj_ptr)                                                          \
-    do {                                                                                   \
-        data_object_t *__data_ptr = (data_object_t *) obj_ptr;                             \
-        if (DATATYPE_STRING == __data_ptr->data_type)                                      \
-        {                                                                                  \
-            CHECK_BYTESTR_ERR_RT(byte_string_destroy(&__data_ptr->payload.string_value));  \
-        }                                                                                  \
-    }                                                                                      \
-    while (0)
+#include "runtime_common.h"
 
 
 static opcode_t *_arithmetic_op(opcode_t *opcode, callstack_frame_t *frame,
@@ -184,17 +125,11 @@ opcode_t *opcode_handler_string(opcode_t *opcode, callstack_frame_t *frame)
     // Set up new byte string object
     byte_string_t *string = &entry.payload.data_object.payload.string_value;
 
-    if (BYTE_STRING_OK != byte_string_create(string))
-    {
-        return NULL;
-    }
+    CHECK_BYTESTR_ERR_RT(byte_string_create(string));
 
     /* Read string data into byte string object (+1 to ensure we copy the
      * trailing null byte as well) */
-    if (BYTE_STRING_OK != byte_string_add_bytes(string, opcode, string_size + 1))
-    {
-        return NULL;
-    }
+    CHECK_BYTESTR_ERR_RT(byte_string_add_bytes(string, opcode, string_size + 1));
 
     // Push byte string value onto stack
     CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &entry));
