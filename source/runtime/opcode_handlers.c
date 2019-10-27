@@ -7,14 +7,62 @@
 
 #define CHECK_ULIST_ERR_RT(func)                                              \
     do {                                                                      \
-        ulist_status_e _err_code = func;                                      \
-        if (ULIST_OK != _err_code)                                            \
-        {   RUNTIME_ERR(RUNTIME_ERROR_MEMORY,                                 \
-                        "ulist_t operation failed, status %d", _err_code);    \
+        ulist_status_e __err_code = func;                                     \
+                                                                              \
+        if (ULIST_OK != __err_code)                                           \
+        {                                                                     \
+            runtime_error_e __rt_err;                                         \
+            if (ULIST_ERROR_MEM == __err_code)                                \
+            {                                                                 \
+                __rt_err = RUNTIME_ERROR_MEMORY;                              \
+            }                                                                 \
+            else                                                              \
+            {                                                                 \
+                __rt_err = RUNTIME_ERROR_INTERNAL;                            \
+            }                                                                 \
+                                                                              \
+            RUNTIME_ERR(__rt_err,                                             \
+                        "ulist_t operation failed, status %d", __err_code);   \
             return NULL;                                                      \
         }                                                                     \
     }                                                                         \
     while(0);
+
+
+#define CHECK_BYTESTR_ERR_RT(func)                                            \
+    do {                                                                      \
+        byte_string_status_e __err_code = func;                               \
+                                                                              \
+        if (BYTE_STRING_OK != __err_code)                                     \
+        {                                                                     \
+            runtime_error_e __rt_err;                                         \
+            if (BYTE_STRING_MEMORY_ERROR == __err_code)                       \
+            {                                                                 \
+                __rt_err = RUNTIME_ERROR_MEMORY;                              \
+            }                                                                 \
+            else                                                              \
+            {                                                                 \
+                __rt_err = RUNTIME_ERROR_INTERNAL;                            \
+            }                                                                 \
+                                                                              \
+            RUNTIME_ERR(__rt_err,                                             \
+                        "byte_string_t operation failed, status %d",          \
+                        __err_code);                                          \
+            return NULL;                                                      \
+        }                                                                     \
+    }                                                                         \
+    while(0)
+
+
+#define FREE_DATA_OBJECT(obj_ptr)                                                          \
+    do {                                                                                   \
+        data_object_t *__data_ptr = (data_object_t *) obj_ptr;                             \
+        if (DATATYPE_STRING == __data_ptr->data_type)                                      \
+        {                                                                                  \
+            CHECK_BYTESTR_ERR_RT(byte_string_destroy(&__data_ptr->payload.string_value));  \
+        }                                                                                  \
+    }                                                                                      \
+    while (0)
 
 
 static opcode_t *_arithmetic_op(opcode_t *opcode, callstack_frame_t *frame,
@@ -36,6 +84,9 @@ static opcode_t *_arithmetic_op(opcode_t *opcode, callstack_frame_t *frame,
         RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC, "Can't do that arithmetic\n");
         return NULL;
     }
+
+    FREE_DATA_OBJECT(&lhs.payload.object);
+    FREE_DATA_OBJECT(&rhs.payload.object);
 
     CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &result));
     return opcode + 1;
