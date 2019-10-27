@@ -10,6 +10,7 @@ typedef enum
     TYPE_INVALID_PARAM,
     TYPE_INVALID_CAST,
     TYPE_INVALID_ARITHMETIC,
+    TYPE_RUNTIME_ERROR,
     TYPE_ERROR
 } type_status_e;
 

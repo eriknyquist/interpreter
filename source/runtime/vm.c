@@ -109,8 +109,9 @@ vm_status_e vm_execute(vm_instance_t *instance, opcode_t *bytecode)
     {
         if (NUM_OPCODES <= *bytecode)
         {
-            RUNTIME_ERR("Unrecognised opcode %d\n", *bytecode);
-            return VM_ERROR;
+            RUNTIME_ERR(RUNTIME_ERROR_INVALID_OPCODE,
+                        "Unrecognised opcode %d\n", *bytecode);
+            return VM_RUNTIME_ERROR;
         }
 
         opcode_e op = (opcode_e) *bytecode;
@@ -119,8 +120,8 @@ vm_status_e vm_execute(vm_instance_t *instance, opcode_t *bytecode)
         bytecode = handler(bytecode, instance->callstack.current_frame);
         if (NULL == bytecode)
         {
-            RUNTIME_ERR("Error executing instruction %d\n", op);
-            return VM_ERROR;
+            instance->runtime_error = runtime_error_get();
+            return VM_RUNTIME_ERROR;
         }
     }
 

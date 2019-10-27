@@ -21,7 +21,7 @@ typedef struct
 {
     size_t total_bytes;
     size_t used_bytes;
-    char *bytes;
+    uint8_t *bytes;
 } byte_string_t;
 
 

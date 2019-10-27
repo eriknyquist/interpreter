@@ -9,7 +9,8 @@
     do {                                                                      \
         ulist_status_e _err_code = func;                                      \
         if (ULIST_OK != _err_code)                                            \
-        {   RUNTIME_ERR("ulist_t operation failed, status %d", _err_code);    \
+        {   RUNTIME_ERR(RUNTIME_ERROR_MEMORY,                                 \
+                        "ulist_t operation failed, status %d", _err_code);    \
             return NULL;                                                      \
         }                                                                     \
     }                                                                         \
@@ -26,10 +27,13 @@ static opcode_t *_arithmetic_op(opcode_t *opcode, callstack_frame_t *frame,
 
     type_status_e err = type_arithmetic(&lhs.payload.object, &rhs.payload.object,
                                         &result.payload.object, arith_type);
-
-    if (TYPE_OK != err)
+    if (TYPE_RUNTIME_ERROR == err)
     {
-        RUNTIME_ERR("Can't do that arithmetic\n");
+        return NULL;
+    }
+    else if (TYPE_OK != err)
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC, "Can't do that arithmetic\n");
         return NULL;
     }
 

@@ -1,4 +1,5 @@
 #include "type_operations_api.h"
+#include "opcode_handlers.h"
 
 
 #define TYPE_OPS_DEF(cast_int, cast_float, cast_string,             \
@@ -7,8 +8,10 @@
      .arith_functions={(arith_int), (arith_float), (arith_string)}}
 
 
-typedef void (*cast_func_t) (object_t *);
-typedef void (*arith_func_t) (object_t *, object_t *, object_t *, arith_type_e);
+typedef type_status_e (*cast_func_t) (object_t *);
+
+typedef type_status_e (*arith_func_t) (object_t *, object_t *, object_t *,
+                                       arith_type_e);
 
 
 typedef struct
@@ -18,13 +21,22 @@ typedef struct
 } type_operations_t;
 
 
-static void _int_to_float(object_t *);
-static void _float_to_int(object_t *);
+static type_status_e _int_to_float(object_t *); /* Cast int to float */
+static type_status_e _float_to_int(object_t *); /* Cast float to int */
 
-static void _arith_int_int(object_t *, object_t *, object_t *, arith_type_e);
-static void _arith_int_float(object_t *, object_t *, object_t *, arith_type_e);
-static void _arith_float_float(object_t *, object_t *, object_t *, arith_type_e);
-static void _arith_float_int(object_t *, object_t *, object_t *, arith_type_e);
+
+/* Arithmetic when LHS is an int */
+static type_status_e _arith_int_int(object_t *, object_t *, object_t *, arith_type_e);
+static type_status_e _arith_int_float(object_t *, object_t *, object_t *, arith_type_e);
+
+
+/* Arithmetic when LHS is a float */
+static type_status_e _arith_float_float(object_t *, object_t *, object_t *, arith_type_e);
+static type_status_e _arith_float_int(object_t *, object_t *, object_t *, arith_type_e);
+
+
+/* Arithmetic when LHS is a string */
+static type_status_e _arith_string_string(object_t *, object_t *, object_t *, arith_type_e);
 
 
 static type_operations_t _type_ops[NUM_DATATYPES] =
@@ -36,29 +48,33 @@ static type_operations_t _type_ops[NUM_DATATYPES] =
                  _arith_float_int, _arith_float_float, NULL), // DATATYPE_FLOAT
 
     TYPE_OPS_DEF(NULL, NULL, NULL,
-                 NULL, NULL, NULL)                            // DATATYPE_STRING
+                 NULL, NULL, _arith_string_string)            // DATATYPE_STRING
 };
 
 
-static void _int_to_float(object_t *object)
+/* Casting functions */
+static type_status_e _int_to_float(object_t *object)
 {
     data_object_t *data_obj = (data_object_t *) object;
 
     data_obj->data_type = DATATYPE_FLOAT;
     data_obj->payload.float_value = (vm_float_t) data_obj->payload.int_value;
+    return TYPE_OK;
 }
 
 
-static void _float_to_int(object_t *object)
+static type_status_e _float_to_int(object_t *object)
 {
     data_object_t *data_obj = (data_object_t *) object;
 
     data_obj->data_type = DATATYPE_INT;
     data_obj->payload.int_value = (vm_int_t) data_obj->payload.float_value;
+    return TYPE_OK;
 }
 
 
-static void _arith_int_int(object_t *int_a, object_t *int_b, object_t *result,
+/* Arithmetic functions */
+static type_status_e _arith_int_int(object_t *int_a, object_t *int_b, object_t *result,
                            arith_type_e arith_type)
 {
     data_object_t *data_a = (data_object_t *) int_a;
@@ -94,10 +110,11 @@ static void _arith_int_int(object_t *int_a, object_t *int_b, object_t *result,
     }
 
     data_result->payload.int_value = result_int;
+    return TYPE_OK;
 }
 
 
-static void _arith_int_float(object_t *int_a, object_t *float_b,
+static type_status_e _arith_int_float(object_t *int_a, object_t *float_b,
                              object_t *result, arith_type_e arith_type)
 {
     data_object_t *data_a = (data_object_t *) int_a;
@@ -137,10 +154,11 @@ static void _arith_int_float(object_t *int_a, object_t *float_b,
     }
 
     data_result->payload.float_value = result_float;
+    return TYPE_OK;
 }
 
 
-static void _arith_float_int(object_t *float_a, object_t *int_b,
+static type_status_e _arith_float_int(object_t *float_a, object_t *int_b,
                              object_t *result, arith_type_e arith_type)
 {
     data_object_t *data_a = (data_object_t *) float_a;
@@ -180,9 +198,11 @@ static void _arith_float_int(object_t *float_a, object_t *int_b,
     }
 
     data_result->payload.float_value = result_float;
+    return TYPE_OK;
 }
 
-static void _arith_float_float(object_t *float_a, object_t *float_b,
+
+static type_status_e _arith_float_float(object_t *float_a, object_t *float_b,
                                object_t *result, arith_type_e arith_type)
 {
     data_object_t *data_a = (data_object_t *) float_a;
@@ -222,6 +242,83 @@ static void _arith_float_float(object_t *float_a, object_t *float_b,
     }
 
     data_result->payload.float_value = result_float;
+    return TYPE_OK;
+}
+
+
+static type_status_e _arith_string_string(object_t *str_a, object_t *str_b, object_t *result,
+                                 arith_type_e arith_type)
+{
+    data_object_t *data_a = (data_object_t *) str_a;
+    data_object_t *data_b = (data_object_t *) str_b;
+    data_object_t *data_result = (data_object_t *) result;
+
+    data_result->object.obj_type = OBJTYPE_DATA;
+    data_result->data_type = DATATYPE_STRING;
+
+    switch (arith_type)
+    {
+        case ARITH_DIV:
+        case ARITH_SUB:
+            RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
+                        "Can't perform %s with two strings",
+                        (ARITH_DIV == arith_type) ? "Division" : "Subtraction");
+            return TYPE_RUNTIME_ERROR;
+
+            break;
+
+        default:
+            // Nothing to do
+            break;
+    }
+
+    byte_string_t *result_string = &data_result->payload.string_value;
+    byte_string_t *lhs_string = &data_a->payload.string_value;
+    byte_string_t *rhs_string = &data_b->payload.string_value;
+    byte_string_status_e err;
+
+    if (BYTE_STRING_OK != (err = byte_string_create(result_string)))
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
+                    "byte_string_create failed, status %d", err);
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    switch (arith_type)
+    {
+        case ARITH_ADD:
+            // Add LHS string to result
+            if (BYTE_STRING_OK != (err = byte_string_add_bytes(result_string,
+                                                               lhs_string->bytes,
+                                                               lhs_string->used_bytes)))
+            {
+                RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
+                            "byte_string_add_bytes failed, status %d", err);
+                return TYPE_RUNTIME_ERROR;
+            }
+
+            // Add RHS string to result
+            if (BYTE_STRING_OK != (err = byte_string_add_bytes(result_string,
+                                                               rhs_string->bytes,
+                                                               rhs_string->used_bytes)))
+            {
+                RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
+                            "byte_string_add_bytes failed, status %d", err);
+            }
+
+            // Ensure string is NULL terminated
+            result_string->bytes[result_string->used_bytes] = '\0';
+            break;
+
+        case ARITH_MULT:
+            break;
+
+        default:
+            // Nothing to do
+            break;
+    }
+
+    return TYPE_OK;
 }
 
 
@@ -244,8 +341,7 @@ type_status_e type_arithmetic(object_t *lhs, object_t *rhs, object_t *result,
         return TYPE_INVALID_ARITHMETIC;
     }
 
-    arith_func(lhs, rhs, result, arith_type);
-    return TYPE_OK;
+    return arith_func(lhs, rhs, result, arith_type);
 }
 
 
@@ -276,6 +372,5 @@ type_status_e type_cast_to(object_t *object, data_type_e type)
         return TYPE_INVALID_CAST;
     }
 
-    cast_func(object);
-    return TYPE_OK;
+    return cast_func(object);
 }
