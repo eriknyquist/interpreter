@@ -27,9 +27,13 @@ int main(void)
     (void) bytecode_emit_print(&program);
     (void) bytecode_emit_end(&program);
 
+    printf("\n-------- raw bytecode --------\n\n");
     bytecode_dump_raw(&program);
+    printf("\n\n");
 
+    printf("--------- disassembly --------\n\n");
     disassemble_bytecode(&program, 0);
+    printf("\n\n");
 
     vm_status_e vm_err;
     vm_instance_t ins;
@@ -40,11 +44,13 @@ int main(void)
         return vm_err;
     }
 
+    printf("------- execution output ------\n\n");
     if ((vm_err = vm_execute(&ins, program.bytecode)) != VM_OK)
     {
         printf("vm_execute failed, status %d\n", vm_err);
         return vm_err;
     }
 
+    printf("\n\n");
     bytecode_destroy(&program);
 }
