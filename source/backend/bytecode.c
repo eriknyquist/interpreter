@@ -144,6 +144,22 @@ bytecode_status_e bytecode_emit_string(bytecode_t *program, char *value)
 }
 
 
+bytecode_status_e bytecode_emit_cast(bytecode_t *program, data_type_e data_type)
+{
+    if (NULL == program)
+    {
+        return BYTECODE_INVALID_PARAM;
+    }
+
+    REQUIRE_SPACE(program, 2);
+
+    program->bytecode[program->used_bytes] = (opcode_t) OPCODE_CAST;
+    program->bytecode[program->used_bytes + 1] = (uint8_t) data_type;
+    program->used_bytes += 2;
+    return BYTECODE_OK;
+}
+
+
 static bytecode_status_e _single_byte_op(bytecode_t *program, opcode_e op)
 {
     if (NULL == program)

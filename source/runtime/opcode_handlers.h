@@ -54,6 +54,9 @@ opcode_t *opcode_handler_string(opcode_t *opcode, callstack_frame_t *frame);
 opcode_t *opcode_handler_print(opcode_t *opcode, callstack_frame_t *frame);
 
 
+opcode_t *opcode_handler_cast(opcode_t *opcode, callstack_frame_t *frame);
+
+
 opcode_t *opcode_handler_end(opcode_t *opcode, callstack_frame_t *frame);
 
 

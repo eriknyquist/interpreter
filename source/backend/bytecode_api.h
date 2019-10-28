@@ -40,6 +40,7 @@ typedef enum
     OPCODE_FLOAT,
     OPCODE_STRING,
     OPCODE_PRINT,
+    OPCODE_CAST,
     OPCODE_END,
     NUM_OPCODES
 } opcode_e;
@@ -61,6 +62,9 @@ bytecode_status_e bytecode_emit_float(bytecode_t *program, vm_float_t value);
 
 
 bytecode_status_e bytecode_emit_string(bytecode_t *program, char *value);
+
+
+bytecode_status_e bytecode_emit_cast(bytecode_t *program, data_type_e data_type);
 
 
 bytecode_status_e bytecode_emit_add(bytecode_t *program);
