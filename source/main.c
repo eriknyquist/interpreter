@@ -22,12 +22,15 @@ int main(void)
     (void) bytecode_emit_add(&program);
     (void) bytecode_emit_int(&program, 2);
     (void) bytecode_emit_div(&program);
+    (void) bytecode_emit_cast(&program, DATATYPE_STRING);
+    (void) bytecode_emit_cast(&program, DATATYPE_INT);
     (void) bytecode_emit_print(&program);
     (void) bytecode_emit_string(&program, "Hello, ");
     (void) bytecode_emit_string(&program, "world!");
     (void) bytecode_emit_add(&program);
     (void) bytecode_emit_print(&program);
     (void) bytecode_emit_end(&program);
+
 
     printf("\n-------- raw bytecode --------\n\n");
     bytecode_dump_raw(&program);

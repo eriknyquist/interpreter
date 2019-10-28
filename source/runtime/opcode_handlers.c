@@ -153,10 +153,11 @@ opcode_t *opcode_handler_print(opcode_t *opcode, callstack_frame_t *frame)
 
 opcode_t *opcode_handler_cast(opcode_t *opcode, callstack_frame_t *frame)
 {
-    data_stack_entry_t entry;
+    data_stack_entry_t input;
+    data_stack_entry_t output;
     type_status_e err;
 
-    CHECK_ULIST_ERR_RT(ulist_pop_item(&frame->data, frame->data.num_items - 1, &entry));
+    CHECK_ULIST_ERR_RT(ulist_pop_item(&frame->data, frame->data.num_items - 1, &input));
 
     // Increment past the opcode
     opcode = (opcode_t *) INCREMENT_PTR_BYTES(opcode, 1);
@@ -164,7 +165,7 @@ opcode_t *opcode_handler_cast(opcode_t *opcode, callstack_frame_t *frame)
     uint8_t data_type_u8 = *((uint8_t *) opcode);
     data_type_e data_type = (data_type_e) data_type_u8;
 
-    err = type_cast_to(&entry.payload.object, data_type);
+    err = type_cast_to(&input.payload.object, &output.payload.object, data_type);
     if (TYPE_OK != err)
     {
         if (TYPE_RUNTIME_ERROR != err)
@@ -175,7 +176,10 @@ opcode_t *opcode_handler_cast(opcode_t *opcode, callstack_frame_t *frame)
         return NULL;
     }
 
-    return INCREMENT_PTR_BYTES(opcode, 2);
+    // Push result of cast onto stack
+    CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &output));
+
+    return INCREMENT_PTR_BYTES(opcode, 1);
 }
 
 

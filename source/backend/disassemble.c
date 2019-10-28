@@ -5,9 +5,31 @@
 #include "data_types.h"
 
 
-/**
- * @see diassemble_api.h
- */
+const char * _datatype_name(data_type_e data_type)
+{
+    switch (data_type)
+    {
+        case DATATYPE_INT:
+            return "INT";
+            break;
+
+        case DATATYPE_FLOAT:
+            return "FLOAT";
+            break;
+
+        case DATATYPE_STRING:
+            return "STRING";
+            break;
+
+        default:
+            return "????";
+            break;
+    }
+
+    return "????";
+}
+
+
 disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t num_instructions)
 {
     if (NULL == program)
@@ -84,6 +106,14 @@ disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t num_instru
             case OPCODE_PRINT:
                 printf("PRINT");
                 bytes_consumed += 1;
+                break;
+
+            case OPCODE_CAST:
+                ip += 1;
+
+                uint8_t datatype_u8 = *ip;
+                printf("CAST %s", _datatype_name((data_type_e) datatype_u8));
+                bytes_consumed += 2;
                 break;
 
             case OPCODE_END:

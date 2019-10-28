@@ -24,7 +24,8 @@ typedef enum
 } arith_type_e;
 
 
-type_status_e type_cast_to(object_t *object, data_type_e type);
+type_status_e type_cast_to(object_t *object, object_t *output,
+                           data_type_e type);
 
 
 type_status_e type_arithmetic(object_t *lhs, object_t *rhs, object_t *result,

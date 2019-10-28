@@ -12,7 +12,7 @@
      .arith_functions={(arith_int), (arith_float), (arith_string)}}
 
 
-typedef type_status_e (*cast_func_t) (object_t *);
+typedef type_status_e (*cast_func_t) (object_t *, object_t *);
 
 typedef type_status_e (*arith_func_t) (object_t *, object_t *, object_t *,
                                        arith_type_e);
@@ -25,12 +25,13 @@ typedef struct
 } type_operations_t;
 
 
-static type_status_e _int_to_float(object_t *);     /* Cast int to float */
-static type_status_e _int_to_string(object_t *);    /* Cast int to string */
-static type_status_e _float_to_int(object_t *);     /* Cast float to int */
-static type_status_e _float_to_string(object_t *);  /* Cast float to string */
-static type_status_e _string_to_int(object_t *);    /* Cast string to int */
-static type_status_e _string_to_float(object_t *);  /* Cast string to int */
+/* Casting functions */
+static type_status_e _int_to_float(object_t *, object_t *);     /* Cast int to float */
+static type_status_e _int_to_string(object_t *, object_t *);    /* Cast int to string */
+static type_status_e _float_to_int(object_t *, object_t *);     /* Cast float to int */
+static type_status_e _float_to_string(object_t *, object_t *);  /* Cast float to string */
+static type_status_e _string_to_int(object_t *, object_t *);    /* Cast string to int */
+static type_status_e _string_to_float(object_t *, object_t *);  /* Cast string to int */
 
 
 /* Arithmetic when LHS is an int */
@@ -61,25 +62,26 @@ static type_operations_t _type_ops[NUM_DATATYPES] =
 
 
 /* Casting functions */
-static type_status_e _int_to_float(object_t *object)
+static type_status_e _int_to_float(object_t *object, object_t *output)
 {
     data_object_t *data_obj = (data_object_t *) object;
+    data_object_t *data_out = (data_object_t *) output;
 
-    data_obj->data_type = DATATYPE_FLOAT;
-    data_obj->payload.float_value = (vm_float_t) data_obj->payload.int_value;
+    data_out->data_type = DATATYPE_FLOAT;
+    data_out->payload.float_value = (vm_float_t) data_obj->payload.int_value;
     return TYPE_OK;
 }
 
 
-static type_status_e _int_to_string(object_t *object)
+static type_status_e _int_to_string(object_t *object, object_t *output)
 {
     data_object_t *data_obj = (data_object_t *) object;
+    data_object_t *data_out = (data_object_t *) output;
 
-    data_obj->data_type = DATATYPE_STRING;
     vm_int_t int_value = data_obj->payload.int_value;
     byte_string_status_e err;
 
-    err = byte_string_create(&data_obj->payload.string_value);
+    err = byte_string_create(&data_out->payload.string_value);
     if (BYTE_STRING_OK != err)
     {
         RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
@@ -87,7 +89,7 @@ static type_status_e _int_to_string(object_t *object)
         return TYPE_RUNTIME_ERROR;
     }
 
-    err = byte_string_add_bytes(&data_obj->payload.string_value,
+    err = byte_string_add_bytes(&data_out->payload.string_value,
                                 MAX_STRING_NUM_SIZE, NULL);
     if (BYTE_STRING_OK != err)
     {
@@ -96,26 +98,28 @@ static type_status_e _int_to_string(object_t *object)
         return TYPE_RUNTIME_ERROR;
     }
 
-    if (snprintf((char *) data_obj->payload.string_value.bytes,
+    if (snprintf((char *) data_out->payload.string_value.bytes,
                  MAX_STRING_NUM_SIZE, "%d", int_value) >= MAX_STRING_NUM_SIZE)
     {
         RUNTIME_ERR(RUNTIME_ERROR_INTERNAL, "snprintf output truncated");
         return TYPE_RUNTIME_ERROR;
     }
 
+    data_out->data_type = DATATYPE_STRING;
     return TYPE_OK;
 }
 
 
-static type_status_e _string_to_int(object_t *object)
+static type_status_e _string_to_int(object_t *object, object_t *output)
 {
     data_object_t *data_obj = (data_object_t *) object;
+    data_object_t *data_out = (data_object_t *) output;
 
     long int longval;
     char *endptr;
 
     longval = strtol((char *) data_obj->payload.string_value.bytes, &endptr, 10);
-    if ('\0' != *endptr)
+    if (('\0' != *endptr) && ('.' != *endptr))
     {
         /* If endptr is not pointing at the null termination byte, then not all
          * characters in the string are valid */
@@ -125,25 +129,17 @@ static type_status_e _string_to_int(object_t *object)
         return TYPE_RUNTIME_ERROR;
     }
 
-    byte_string_status_e err;
-    err = byte_string_destroy(&data_obj->payload.string_value);
-    if (BYTE_STRING_OK != err)
-    {
-        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
-                    "byte_string_destroy failed, status %d", err);
-        return TYPE_RUNTIME_ERROR;
-    }
-
-    data_obj->data_type = DATATYPE_INT;
-    data_obj->payload.int_value = (vm_int_t) longval;
+    data_out->data_type = DATATYPE_INT;
+    data_out->payload.int_value = (vm_int_t) longval;
 
     return TYPE_OK;
 }
 
 
-static type_status_e _string_to_float(object_t *object)
+static type_status_e _string_to_float(object_t *object, object_t *output)
 {
     data_object_t *data_obj = (data_object_t *) object;
+    data_object_t *data_out = (data_object_t *) output;
 
     double doubleval;
     char *endptr;
@@ -159,41 +155,32 @@ static type_status_e _string_to_float(object_t *object)
         return TYPE_RUNTIME_ERROR;
     }
 
-    byte_string_status_e err;
-    err = byte_string_destroy(&data_obj->payload.string_value);
-    if (BYTE_STRING_OK != err)
-    {
-        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
-                    "byte_string_destroy failed, status %d", err);
-        return TYPE_RUNTIME_ERROR;
-    }
-
-    data_obj->data_type = DATATYPE_FLOAT;
-    data_obj->payload.int_value = (vm_float_t) doubleval;
+    data_out->data_type = DATATYPE_FLOAT;
+    data_out->payload.float_value = (vm_float_t) doubleval;
 
     return TYPE_OK;
 }
 
 
-static type_status_e _float_to_int(object_t *object)
+static type_status_e _float_to_int(object_t *object, object_t *output)
 {
     data_object_t *data_obj = (data_object_t *) object;
+    data_object_t *data_out = (data_object_t *) output;
 
-    data_obj->data_type = DATATYPE_INT;
-    data_obj->payload.int_value = (vm_int_t) data_obj->payload.float_value;
+    data_out->data_type = DATATYPE_INT;
+    data_out->payload.int_value = (vm_int_t) data_obj->payload.float_value;
     return TYPE_OK;
 }
 
 
-static type_status_e _float_to_string(object_t *object)
+static type_status_e _float_to_string(object_t *object, object_t *output)
 {
     data_object_t *data_obj = (data_object_t *) object;
+    data_object_t *data_out = (data_object_t *) output;
 
-    data_obj->data_type = DATATYPE_STRING;
-    vm_float_t float_value = data_obj->payload.float_value;
     byte_string_status_e err;
 
-    err = byte_string_create(&data_obj->payload.string_value);
+    err = byte_string_create(&data_out->payload.string_value);
     if (BYTE_STRING_OK != err)
     {
         RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
@@ -201,7 +188,7 @@ static type_status_e _float_to_string(object_t *object)
         return TYPE_RUNTIME_ERROR;
     }
 
-    err = byte_string_add_bytes(&data_obj->payload.string_value,
+    err = byte_string_add_bytes(&data_out->payload.string_value,
                                 MAX_STRING_NUM_SIZE, NULL);
     if (BYTE_STRING_OK != err)
     {
@@ -210,13 +197,15 @@ static type_status_e _float_to_string(object_t *object)
         return TYPE_RUNTIME_ERROR;
     }
 
-    if (snprintf((char *) data_obj->payload.string_value.bytes,
-                 MAX_STRING_NUM_SIZE, "%.4f", float_value) >= MAX_STRING_NUM_SIZE)
+    if (snprintf((char *) data_out->payload.string_value.bytes,
+                 MAX_STRING_NUM_SIZE, "%.4f",
+                 data_obj->payload.float_value) >= MAX_STRING_NUM_SIZE)
     {
         RUNTIME_ERR(RUNTIME_ERROR_INTERNAL, "snprintf output truncated");
         return TYPE_RUNTIME_ERROR;
     }
 
+    data_out->data_type = DATATYPE_STRING;
     return TYPE_OK;
 }
 
@@ -493,7 +482,7 @@ type_status_e type_arithmetic(object_t *lhs, object_t *rhs, object_t *result,
 }
 
 
-type_status_e type_cast_to(object_t *object, data_type_e type)
+type_status_e type_cast_to(object_t *object, object_t *output, data_type_e type)
 {
     if (NUM_DATATYPES <= type)
     {
@@ -520,5 +509,5 @@ type_status_e type_cast_to(object_t *object, data_type_e type)
         return TYPE_INVALID_CAST;
     }
 
-    return cast_func(object);
+    return cast_func(object, output);
 }
