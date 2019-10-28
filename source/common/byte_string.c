@@ -76,17 +76,21 @@ byte_string_status_e byte_string_create(byte_string_t *string)
 }
 
 
-byte_string_status_e byte_string_add_bytes(byte_string_t *string, uint8_t *bytes,
-                                           size_t num_bytes)
+byte_string_status_e byte_string_add_bytes(byte_string_t *string,
+                                           size_t num_bytes, uint8_t *bytes)
 {
-    if ((NULL == string) || (NULL == bytes) || (num_bytes == 0))
+    if ((NULL == string) || (num_bytes == 0))
     {
         return BYTE_STRING_INVALID_PARAM;
     }
 
     ENLARGE_IF_NEEDED(string, num_bytes);
 
-    (void) memcpy(string->bytes + string->used_bytes, bytes, num_bytes);
+    if (NULL != bytes)
+    {
+        (void) memcpy(string->bytes + string->used_bytes, bytes, num_bytes);
+    }
+
     string->used_bytes += num_bytes;
 
     return BYTE_STRING_OK;

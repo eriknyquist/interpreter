@@ -1,5 +1,9 @@
+#include <stdlib.h>
 #include "type_operations_api.h"
 #include "opcode_handlers.h"
+
+
+#define MAX_STRING_NUM_SIZE (32)
 
 
 #define TYPE_OPS_DEF(cast_int, cast_float, cast_string,             \
@@ -21,8 +25,12 @@ typedef struct
 } type_operations_t;
 
 
-static type_status_e _int_to_float(object_t *); /* Cast int to float */
-static type_status_e _float_to_int(object_t *); /* Cast float to int */
+static type_status_e _int_to_float(object_t *);     /* Cast int to float */
+static type_status_e _int_to_string(object_t *);    /* Cast int to string */
+static type_status_e _float_to_int(object_t *);     /* Cast float to int */
+static type_status_e _float_to_string(object_t *);  /* Cast float to string */
+static type_status_e _string_to_int(object_t *);    /* Cast string to int */
+static type_status_e _string_to_float(object_t *);  /* Cast string to int */
 
 
 /* Arithmetic when LHS is an int */
@@ -41,13 +49,13 @@ static type_status_e _arith_string_string(object_t *, object_t *, object_t *, ar
 
 static type_operations_t _type_ops[NUM_DATATYPES] =
 {
-    TYPE_OPS_DEF(NULL, _int_to_float, NULL,
+    TYPE_OPS_DEF(NULL, _int_to_float, _int_to_string,
                  _arith_int_int, _arith_int_float, NULL),     // DATATYPE_INT
 
-    TYPE_OPS_DEF(_float_to_int, NULL, NULL,
+    TYPE_OPS_DEF(_float_to_int, NULL, _float_to_string,
                  _arith_float_int, _arith_float_float, NULL), // DATATYPE_FLOAT
 
-    TYPE_OPS_DEF(NULL, NULL, NULL,
+    TYPE_OPS_DEF(_string_to_int, _string_to_float, NULL,
                  NULL, NULL, _arith_string_string)            // DATATYPE_STRING
 };
 
@@ -63,12 +71,152 @@ static type_status_e _int_to_float(object_t *object)
 }
 
 
+static type_status_e _int_to_string(object_t *object)
+{
+    data_object_t *data_obj = (data_object_t *) object;
+
+    data_obj->data_type = DATATYPE_STRING;
+    vm_int_t int_value = data_obj->payload.int_value;
+    byte_string_status_e err;
+
+    err = byte_string_create(&data_obj->payload.string_value);
+    if (BYTE_STRING_OK != err)
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
+                    "byte_string_create failed, status %d", err);
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    err = byte_string_add_bytes(&data_obj->payload.string_value,
+                                MAX_STRING_NUM_SIZE, NULL);
+    if (BYTE_STRING_OK != err)
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
+                    "byte_string_add_bytes failed, status %d", err);
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    if (snprintf((char *) data_obj->payload.string_value.bytes,
+                 MAX_STRING_NUM_SIZE, "%d", int_value) >= MAX_STRING_NUM_SIZE)
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL, "snprintf output truncated");
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    return TYPE_OK;
+}
+
+
+static type_status_e _string_to_int(object_t *object)
+{
+    data_object_t *data_obj = (data_object_t *) object;
+
+    long int longval;
+    char *endptr;
+
+    longval = strtol((char *) data_obj->payload.string_value.bytes, &endptr, 10);
+    if ('\0' != *endptr)
+    {
+        /* If endptr is not pointing at the null termination byte, then not all
+         * characters in the string are valid */
+        RUNTIME_ERR(RUNTIME_ERROR_CAST,
+                    "Can't convert string '%s' to int",
+                    data_obj->payload.string_value.bytes);
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    byte_string_status_e err;
+    err = byte_string_destroy(&data_obj->payload.string_value);
+    if (BYTE_STRING_OK != err)
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
+                    "byte_string_destroy failed, status %d", err);
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    data_obj->data_type = DATATYPE_INT;
+    data_obj->payload.int_value = (vm_int_t) longval;
+
+    return TYPE_OK;
+}
+
+
+static type_status_e _string_to_float(object_t *object)
+{
+    data_object_t *data_obj = (data_object_t *) object;
+
+    double doubleval;
+    char *endptr;
+
+    doubleval = strtod((char *) data_obj->payload.string_value.bytes, &endptr);
+    if ('\0' != *endptr)
+    {
+        /* If endptr is not pointing at the null termination byte, then not all
+         * characters in the string are valid */
+        RUNTIME_ERR(RUNTIME_ERROR_CAST,
+                    "Can't convert string '%s' to float",
+                    data_obj->payload.string_value.bytes);
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    byte_string_status_e err;
+    err = byte_string_destroy(&data_obj->payload.string_value);
+    if (BYTE_STRING_OK != err)
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
+                    "byte_string_destroy failed, status %d", err);
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    data_obj->data_type = DATATYPE_FLOAT;
+    data_obj->payload.int_value = (vm_float_t) doubleval;
+
+    return TYPE_OK;
+}
+
+
 static type_status_e _float_to_int(object_t *object)
 {
     data_object_t *data_obj = (data_object_t *) object;
 
     data_obj->data_type = DATATYPE_INT;
     data_obj->payload.int_value = (vm_int_t) data_obj->payload.float_value;
+    return TYPE_OK;
+}
+
+
+static type_status_e _float_to_string(object_t *object)
+{
+    data_object_t *data_obj = (data_object_t *) object;
+
+    data_obj->data_type = DATATYPE_STRING;
+    vm_float_t float_value = data_obj->payload.float_value;
+    byte_string_status_e err;
+
+    err = byte_string_create(&data_obj->payload.string_value);
+    if (BYTE_STRING_OK != err)
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
+                    "byte_string_create failed, status %d", err);
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    err = byte_string_add_bytes(&data_obj->payload.string_value,
+                                MAX_STRING_NUM_SIZE, NULL);
+    if (BYTE_STRING_OK != err)
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
+                    "byte_string_add_bytes failed, status %d", err);
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    if (snprintf((char *) data_obj->payload.string_value.bytes,
+                 MAX_STRING_NUM_SIZE, "%.4f", float_value) >= MAX_STRING_NUM_SIZE)
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL, "snprintf output truncated");
+        return TYPE_RUNTIME_ERROR;
+    }
+
     return TYPE_OK;
 }
 
@@ -289,8 +437,8 @@ static type_status_e _arith_string_string(object_t *str_a, object_t *str_b, obje
         case ARITH_ADD:
             // Add LHS string to result
             if (BYTE_STRING_OK != (err = byte_string_add_bytes(result_string,
-                                                               lhs_string->bytes,
-                                                               lhs_string->used_bytes)))
+                                                               lhs_string->used_bytes,
+                                                               lhs_string->bytes)))
             {
                 RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
                             "byte_string_add_bytes failed, status %d", err);
@@ -299,8 +447,8 @@ static type_status_e _arith_string_string(object_t *str_a, object_t *str_b, obje
 
             // Add RHS string to result
             if (BYTE_STRING_OK != (err = byte_string_add_bytes(result_string,
-                                                               rhs_string->bytes,
-                                                               rhs_string->used_bytes)))
+                                                               rhs_string->used_bytes,
+                                                               rhs_string->bytes)))
             {
                 RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
                             "byte_string_add_bytes failed, status %d", err);

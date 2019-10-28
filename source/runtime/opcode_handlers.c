@@ -129,7 +129,7 @@ opcode_t *opcode_handler_string(opcode_t *opcode, callstack_frame_t *frame)
 
     /* Read string data into byte string object (+1 to ensure we copy the
      * trailing null byte as well) */
-    CHECK_BYTESTR_ERR_RT(byte_string_add_bytes(string, opcode, string_size + 1));
+    CHECK_BYTESTR_ERR_RT(byte_string_add_bytes(string, string_size + 1, opcode));
 
     // Push byte string value onto stack
     CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &entry));
