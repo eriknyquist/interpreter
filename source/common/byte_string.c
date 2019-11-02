@@ -29,7 +29,7 @@ static byte_string_status_e _resize_byte_string(byte_string_t *string, size_t ne
     uint8_t *temp;
 
     size_t alloc_size;
-    
+
     alloc_size = (BLOCK_SIZE < new_size) ?
                  BLOCK_SIZE * ((new_size / BLOCK_SIZE) + 1) : BLOCK_SIZE;
 
@@ -71,7 +71,7 @@ byte_string_status_e byte_string_create(byte_string_t *string)
     }
 
     memset(string, 0, sizeof(byte_string_t));
-    
+
     return BYTE_STRING_OK;
 }
 
@@ -79,7 +79,7 @@ byte_string_status_e byte_string_create(byte_string_t *string)
 byte_string_status_e byte_string_add_bytes(byte_string_t *string,
                                            size_t num_bytes, uint8_t *bytes)
 {
-    if ((NULL == string) || (num_bytes == 0))
+    if ((NULL == string) || (0 == num_bytes))
     {
         return BYTE_STRING_INVALID_PARAM;
     }
@@ -92,6 +92,31 @@ byte_string_status_e byte_string_add_bytes(byte_string_t *string,
     }
 
     string->used_bytes += num_bytes;
+
+    return BYTE_STRING_OK;
+}
+
+
+byte_string_status_e byte_string_snprintf(byte_string_t *string, size_t size,
+                                          const char *format, ...)
+{
+    if ((NULL == string) || (NULL == format))
+    {
+        return BYTE_STRING_INVALID_PARAM;
+    }
+
+    ENLARGE_IF_NEEDED(string, size);
+
+    va_list va_args;
+
+    va_start(va_args, format);
+
+    if (vsnprintf((char *) string->bytes, size, format, va_args) >= size)
+    {
+        return BYTE_STRING_OUTPUT_TRUNCATED;
+    }
+
+    va_end(va_args);
 
     return BYTE_STRING_OK;
 }
@@ -110,6 +135,6 @@ byte_string_status_e byte_string_destroy(byte_string_t *string)
     }
 
     memset(string, 0, sizeof(byte_string_t));
-    
+
     return BYTE_STRING_OK;
 }

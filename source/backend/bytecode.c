@@ -13,7 +13,7 @@
 // Helper macro to double the size allocated for bytecode if we run out of space
 #define REQUIRE_SPACE(prog, free_bytes_needed)                                \
     do {                                                                      \
-        if ((prog->total_bytes - prog->used_bytes) < free_bytes_needed)       \
+        if ((prog->total_bytes - prog->used_bytes) < (free_bytes_needed))     \
         {                                                                     \
             prog->total_bytes *= 2;                                           \
             prog->bytecode = realloc(prog->bytecode, prog->total_bytes);      \
@@ -113,7 +113,7 @@ bytecode_status_e bytecode_emit_float(bytecode_t *program, vm_float_t value)
 
 bytecode_status_e bytecode_emit_string(bytecode_t *program, char *value)
 {
-    if (NULL == program)
+    if ((NULL == program) || (NULL == value))
     {
         return BYTECODE_INVALID_PARAM;
     }
@@ -133,29 +133,44 @@ bytecode_status_e bytecode_emit_string(bytecode_t *program, char *value)
 
     *((uint32_t *) ip) = (uint32_t) string_bytes;
 
-    if (NULL != value)
-    {
-        ip = (opcode_t *) INCREMENT_PTR_BYTES(ip, sizeof(uint32_t));
-        (void) memcpy(ip, value, string_bytes);
-    }
+    ip = (opcode_t *) INCREMENT_PTR_BYTES(ip, sizeof(uint32_t));
+    (void) memcpy(ip, value, string_bytes);
 
     program->used_bytes += op_bytes;
     return BYTECODE_OK;
 }
 
-
-bytecode_status_e bytecode_emit_cast(bytecode_t *program, data_type_e data_type)
+/* 'data' is only used in two cases:
+ *
+ * - if we are casting from float to string, 'data' is the number of
+ *   places after the decimal point to add in the created string object.
+ * - if we are casting from int to string, 'data' is the numerical base that
+ *   the string should be interpreted in (expected value is between 2-36, this
+ *   is passed directly to strtol so a better description of different bases can
+ *   be found here: http://man7.org/linux/man-pages/man3/strtol.3.html\
+ */
+bytecode_status_e bytecode_emit_cast(bytecode_t *program, data_type_e data_type,
+                                     uint16_t data)
 {
     if (NULL == program)
     {
         return BYTECODE_INVALID_PARAM;
     }
 
-    REQUIRE_SPACE(program, 2);
+    size_t op_bytes = 1 + sizeof(uint8_t) + sizeof(uint16_t);
+    REQUIRE_SPACE(program, op_bytes);
 
-    program->bytecode[program->used_bytes] = (opcode_t) OPCODE_CAST;
-    program->bytecode[program->used_bytes + 1] = (uint8_t) data_type;
-    program->used_bytes += 2;
+    opcode_t *ip = program->bytecode + program->used_bytes;
+
+    *ip = (opcode_t) OPCODE_CAST;
+    ip = (opcode_t *) INCREMENT_PTR_BYTES(ip, 1);
+
+    *ip = (uint8_t) data_type;
+    ip = (opcode_t *) INCREMENT_PTR_BYTES(ip, sizeof(uint8_t));
+
+    *((uint16_t *) ip) = data;
+
+    program->used_bytes += op_bytes;
     return BYTECODE_OK;
 }
 

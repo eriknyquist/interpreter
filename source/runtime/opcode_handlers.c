@@ -162,10 +162,19 @@ opcode_t *opcode_handler_cast(opcode_t *opcode, callstack_frame_t *frame)
     // Increment past the opcode
     opcode = (opcode_t *) INCREMENT_PTR_BYTES(opcode, 1);
 
+    // Read data type
     uint8_t data_type_u8 = *((uint8_t *) opcode);
     data_type_e data_type = (data_type_e) data_type_u8;
 
-    err = type_cast_to(&input.payload.object, &output.payload.object, data_type);
+    // Increment past the data type
+    opcode = (opcode_t *) INCREMENT_PTR_BYTES(opcode, 1);
+
+    // Read extra data
+    uint16_t extra_data = *((uint16_t *) opcode);
+
+    err = type_cast_to(&input.payload.object, &output.payload.object,
+                       data_type, extra_data);
+
     if (TYPE_OK != err)
     {
         if (TYPE_RUNTIME_ERROR != err)
@@ -179,7 +188,8 @@ opcode_t *opcode_handler_cast(opcode_t *opcode, callstack_frame_t *frame)
     // Push result of cast onto stack
     CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &output));
 
-    return INCREMENT_PTR_BYTES(opcode, 1);
+    // Increment past extra data and return
+    return INCREMENT_PTR_BYTES(opcode, sizeof(uint16_t));
 }
 
 

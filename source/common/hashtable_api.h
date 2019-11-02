@@ -73,13 +73,16 @@ hashtable_status_e hashtable_destroy(hashtable_t *table);
 /**
  * Add an entry to the hashtable.
  *
- * @param table  Pointer to hashtable instance to be destroyed
- * @param key    Pointer to NULL-terminated string key used to access the entry
- * @param data   Pointer to data for hashtable entry
+ * @param table  Pointer to hashtable instance to be destroyed.
+ * @param key    Pointer to NULL-terminated string key used to access the entry.
+ * @param data   Pointer to data for hashtable entry.
+ * @param hash   Optional pointer to write calculated hash to. If not NULL, the
+ *               hash calculated for key is written here.
  *
  * @return       HASHTABLE_OK if successful, #hastable_status_e otherwise
  */
-hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data);
+hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data,
+                                 uint32_t *hash_output);
 
 
 /**

@@ -2,7 +2,9 @@
 #define BYTE_STRING_API_H_
 
 
+#include <stdio.h>
 #include <stdint.h>
+#include <stdarg.h>
 
 
 /* Enumeration of all status codes returned by byte_string_api functions */
@@ -12,6 +14,7 @@ typedef enum
     BYTE_STRING_INVALID_PARAM,
     BYTE_STRING_INDEX_OUT_OF_RANGE,
     BYTE_STRING_MEMORY_ERROR,
+    BYTE_STRING_OUTPUT_TRUNCATED,
     BYTE_STRING_ERROR
 } byte_string_status_e;
 
@@ -35,4 +38,6 @@ byte_string_status_e byte_string_add_bytes(byte_string_t *string,
                                            size_t num_bytes, uint8_t *bytes);
 
 
+byte_string_status_e byte_string_snprintf(byte_string_t *string, size_t size,
+                                          const char *format, ...);
 #endif /* BYTE_STRING_API_H */

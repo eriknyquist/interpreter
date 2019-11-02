@@ -74,7 +74,8 @@ hashtable_status_e hashtable_destroy(hashtable_t *table)
 /**
  * @see hashtable_api.h
  */
-hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data)
+hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data,
+                                 uint32_t *hash_output)
 {
     if ((NULL == table) || (NULL == key) || (NULL == data))
     {
@@ -86,6 +87,11 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data)
     if (HASHTABLE_OK != hash_err)
     {
         return hash_err;
+    }
+
+    if (NULL != hash_output)
+    {
+        *hash_output = hash;
     }
 
     ulist_t *slot = &table->table[hash % NUM_TABLE_SLOTS];

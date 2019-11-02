@@ -3,7 +3,20 @@
 #include "opcode_handlers.h"
 
 
-#define MAX_STRING_NUM_SIZE (32)
+/* Size allocated for string data in a DATATYPE_STRING object created to
+ * hold the string-ified representation of an integer */
+#define MAX_STRING_NUM_SIZE (32u)
+
+
+/* Highest values allowed for number of decimal places when converting
+ * a float object to a string object */
+#define MAX_FLOAT_PLACES (32)
+
+
+/* Min/max valid values for base when converting a string object to an int
+ * object, as specified by http://man7.org/linux/man-pages/man3/strtol.3.html */
+#define MIN_STRING_INT_BASE (2)
+#define MAX_STRING_INT_BASE (36)
 
 
 #define TYPE_OPS_DEF(cast_int, cast_float, cast_string,             \
@@ -12,7 +25,7 @@
      .arith_functions={(arith_int), (arith_float), (arith_string)}}
 
 
-typedef type_status_e (*cast_func_t) (object_t *, object_t *);
+typedef type_status_e (*cast_func_t) (object_t *, object_t *, uint16_t);
 
 typedef type_status_e (*arith_func_t) (object_t *, object_t *, object_t *,
                                        arith_type_e);
@@ -26,12 +39,12 @@ typedef struct
 
 
 /* Casting functions */
-static type_status_e _int_to_float(object_t *, object_t *);     /* Cast int to float */
-static type_status_e _int_to_string(object_t *, object_t *);    /* Cast int to string */
-static type_status_e _float_to_int(object_t *, object_t *);     /* Cast float to int */
-static type_status_e _float_to_string(object_t *, object_t *);  /* Cast float to string */
-static type_status_e _string_to_int(object_t *, object_t *);    /* Cast string to int */
-static type_status_e _string_to_float(object_t *, object_t *);  /* Cast string to int */
+static type_status_e _int_to_float(object_t *, object_t *, uint16_t);     /* Cast int to float */
+static type_status_e _int_to_string(object_t *, object_t *, uint16_t);    /* Cast int to string */
+static type_status_e _float_to_int(object_t *, object_t *, uint16_t);     /* Cast float to int */
+static type_status_e _float_to_string(object_t *, object_t *, uint16_t);  /* Cast float to string */
+static type_status_e _string_to_int(object_t *, object_t *, uint16_t);    /* Cast string to int */
+static type_status_e _string_to_float(object_t *, object_t *, uint16_t);  /* Cast string to int */
 
 
 /* Arithmetic when LHS is an int */
@@ -62,7 +75,7 @@ static type_operations_t _type_ops[NUM_DATATYPES] =
 
 
 /* Casting functions */
-static type_status_e _int_to_float(object_t *object, object_t *output)
+static type_status_e _int_to_float(object_t *object, object_t *output, uint16_t data)
 {
     data_object_t *data_obj = (data_object_t *) object;
     data_object_t *data_out = (data_object_t *) output;
@@ -73,7 +86,7 @@ static type_status_e _int_to_float(object_t *object, object_t *output)
 }
 
 
-static type_status_e _int_to_string(object_t *object, object_t *output)
+static type_status_e _int_to_string(object_t *object, object_t *output, uint16_t data)
 {
     data_object_t *data_obj = (data_object_t *) object;
     data_object_t *data_out = (data_object_t *) output;
@@ -89,19 +102,12 @@ static type_status_e _int_to_string(object_t *object, object_t *output)
         return TYPE_RUNTIME_ERROR;
     }
 
-    err = byte_string_add_bytes(&data_out->payload.string_value,
-                                MAX_STRING_NUM_SIZE, NULL);
+    err = byte_string_snprintf(&data_out->payload.string_value,
+                               MAX_STRING_NUM_SIZE, "%d", int_value);
     if (BYTE_STRING_OK != err)
     {
         RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
-                    "byte_string_add_bytes failed, status %d", err);
-        return TYPE_RUNTIME_ERROR;
-    }
-
-    if (snprintf((char *) data_out->payload.string_value.bytes,
-                 MAX_STRING_NUM_SIZE, "%d", int_value) >= MAX_STRING_NUM_SIZE)
-    {
-        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL, "snprintf output truncated");
+                    "byte_string_snprintf failed, status %d", err);
         return TYPE_RUNTIME_ERROR;
     }
 
@@ -110,7 +116,7 @@ static type_status_e _int_to_string(object_t *object, object_t *output)
 }
 
 
-static type_status_e _string_to_int(object_t *object, object_t *output)
+static type_status_e _string_to_int(object_t *object, object_t *output, uint16_t base)
 {
     data_object_t *data_obj = (data_object_t *) object;
     data_object_t *data_out = (data_object_t *) output;
@@ -118,7 +124,14 @@ static type_status_e _string_to_int(object_t *object, object_t *output)
     long int longval;
     char *endptr;
 
-    longval = strtol((char *) data_obj->payload.string_value.bytes, &endptr, 10);
+    if ((MIN_STRING_INT_BASE > base) || (MAX_STRING_INT_BASE < base))
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_CAST, "base must be between %d-%d",
+                                        MIN_STRING_INT_BASE, MAX_STRING_INT_BASE);
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    longval = strtol((char *) data_obj->payload.string_value.bytes, &endptr, (int) base);
     if (('\0' != *endptr) && ('.' != *endptr))
     {
         /* If endptr is not pointing at the null termination byte, then not all
@@ -136,7 +149,7 @@ static type_status_e _string_to_int(object_t *object, object_t *output)
 }
 
 
-static type_status_e _string_to_float(object_t *object, object_t *output)
+static type_status_e _string_to_float(object_t *object, object_t *output, uint16_t data)
 {
     data_object_t *data_obj = (data_object_t *) object;
     data_object_t *data_out = (data_object_t *) output;
@@ -162,7 +175,7 @@ static type_status_e _string_to_float(object_t *object, object_t *output)
 }
 
 
-static type_status_e _float_to_int(object_t *object, object_t *output)
+static type_status_e _float_to_int(object_t *object, object_t *output, uint16_t data)
 {
     data_object_t *data_obj = (data_object_t *) object;
     data_object_t *data_out = (data_object_t *) output;
@@ -173,35 +186,43 @@ static type_status_e _float_to_int(object_t *object, object_t *output)
 }
 
 
-static type_status_e _float_to_string(object_t *object, object_t *output)
+static type_status_e _float_to_string(object_t *object, object_t *output, uint16_t places)
 {
     data_object_t *data_obj = (data_object_t *) object;
     data_object_t *data_out = (data_object_t *) output;
 
     byte_string_status_e err;
 
+    if (MAX_FLOAT_PLACES < places)
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_CAST,
+                    "decimal places must be between 0-%d\n", MAX_FLOAT_PLACES);
+        return TYPE_RUNTIME_ERROR;
+    }
+
     err = byte_string_create(&data_out->payload.string_value);
     if (BYTE_STRING_OK != err)
     {
         RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
-                    "byte_string_create failed, status %d", err);
+                    "byte_string_create failed, status %d\n", err);
         return TYPE_RUNTIME_ERROR;
     }
 
-    err = byte_string_add_bytes(&data_out->payload.string_value,
-                                MAX_STRING_NUM_SIZE, NULL);
+    // Build format string with requested number of places
+    char fmt_string[16];
+    if (snprintf(fmt_string, sizeof(fmt_string), "%%.%df", places) >= sizeof(fmt_string))
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL, "snprintf output truncated\n");
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    err = byte_string_snprintf(&data_out->payload.string_value,
+                                MAX_STRING_NUM_SIZE + places, fmt_string,
+                                data_obj->payload.float_value);
     if (BYTE_STRING_OK != err)
     {
         RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
-                    "byte_string_add_bytes failed, status %d", err);
-        return TYPE_RUNTIME_ERROR;
-    }
-
-    if (snprintf((char *) data_out->payload.string_value.bytes,
-                 MAX_STRING_NUM_SIZE, "%.4f",
-                 data_obj->payload.float_value) >= MAX_STRING_NUM_SIZE)
-    {
-        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL, "snprintf output truncated");
+                    "byte_string_snprintf failed, status %d", err);
         return TYPE_RUNTIME_ERROR;
     }
 
@@ -482,7 +503,8 @@ type_status_e type_arithmetic(object_t *lhs, object_t *rhs, object_t *result,
 }
 
 
-type_status_e type_cast_to(object_t *object, object_t *output, data_type_e type)
+type_status_e type_cast_to(object_t *object, object_t *output, data_type_e type,
+                           uint16_t data)
 {
     if (NUM_DATATYPES <= type)
     {
@@ -509,5 +531,5 @@ type_status_e type_cast_to(object_t *object, object_t *output, data_type_e type)
         return TYPE_INVALID_CAST;
     }
 
-    return cast_func(object, output);
+    return cast_func(object, output, data);
 }
