@@ -17,8 +17,7 @@ BUILD_OUTPUT := $(OUTPUT_DIR)/$(PROGNAME)
 
 CFLAGS += -Wall $(INCLUDE_FLAGS)
 
-.PHONY: clean
-
+.PHONY: all debug output_dir clean
 
 all: CFLAGS += -O3
 all: $(BUILD_OUTPUT)
