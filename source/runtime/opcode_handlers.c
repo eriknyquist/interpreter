@@ -6,6 +6,8 @@
 #include "runtime_common.h"
 
 
+/* Boilerplate for performing an arithmetic operation by popping two operands
+ * off the stack and pushing the result to the stack */
 static opcode_t *_arithmetic_op(opcode_t *opcode, callstack_frame_t *frame,
                                     arith_type_e arith_type)
 {
@@ -34,36 +36,73 @@ static opcode_t *_arithmetic_op(opcode_t *opcode, callstack_frame_t *frame,
 }
 
 
+/**
+ * Does nothing for a single cycle of the virtual machine
+ *
+ * opcode format:
+ *
+ * 0000  opcode  (1 byte)
+ */
 opcode_t *opcode_handler_nop(opcode_t *opcode, callstack_frame_t *frame)
 {
     return opcode + 1;
 }
 
 
+/**
+ * Pops two items off the stack, adds them together and creates a new value
+ * containing the result, and pushes the result to the stack
+ *
+ * 0000  opcode  (1 byte)
+ */
 opcode_t *opcode_handler_add(opcode_t *opcode, callstack_frame_t *frame)
 {
     return _arithmetic_op(opcode, frame, ARITH_ADD);
 }
 
 
+/**
+ * Pops two items off the stack, subtracts the first popped from the second popped
+ * and creates a new value containing the result, and pushes the result to the stack
+ *
+ * 0000  opcode  (1 byte)
+ */
 opcode_t *opcode_handler_sub(opcode_t *opcode, callstack_frame_t *frame)
 {
     return _arithmetic_op(opcode, frame, ARITH_SUB);
 }
 
 
+/**
+ * Pops two items off the stack, multiplies them and creates a new value
+ * containing the result, and pushes the result to the stack
+ *
+ * 0000  opcode  (1 byte)
+ */
 opcode_t *opcode_handler_mult(opcode_t *opcode, callstack_frame_t *frame)
 {
     return _arithmetic_op(opcode, frame, ARITH_MULT);
 }
 
 
+/**
+ * Pops two items off the stack, divides the first popped by the second popped
+ * and creates a new value containing the result, and pushes the result to the stack
+ *
+ * 0000  opcode  (1 byte)
+ */
 opcode_t *opcode_handler_div(opcode_t *opcode, callstack_frame_t *frame)
 {
     return _arithmetic_op(opcode, frame, ARITH_DIV);
 }
 
 
+/**
+ * Creates an  object with the provided integer value and pushes it to the stack
+ *
+ * 0000  opcode    (1 byte)
+ * 0001  int value (4 bytes, signed integer)
+ */
 opcode_t *opcode_handler_int(opcode_t *opcode, callstack_frame_t *frame)
 {
     data_stack_entry_t entry;
@@ -85,6 +124,13 @@ opcode_t *opcode_handler_int(opcode_t *opcode, callstack_frame_t *frame)
 }
 
 
+/**
+ * Creates a float object with the provided floating point value and pushes it
+ * to the stack
+ *
+ * 0000  opcode      (1 byte)
+ * 0001  float value (8 bytes, double-precision float)
+ */
 opcode_t *opcode_handler_float(opcode_t *opcode, callstack_frame_t *frame)
 {
     data_stack_entry_t entry;
@@ -106,6 +152,13 @@ opcode_t *opcode_handler_float(opcode_t *opcode, callstack_frame_t *frame)
 }
 
 
+/**
+ * Creates a string object with the provided string data and pushes it to the stack
+ *
+ * 0000  opcode                       (1 byte)
+ * 0001  size of string data in bytes (4 bytes, unsigned integer)
+ * 0005  string data                  (no. of bytes specified by previous field)
+ */
 opcode_t *opcode_handler_string(opcode_t *opcode, callstack_frame_t *frame)
 {
     data_stack_entry_t entry;
@@ -139,6 +192,14 @@ opcode_t *opcode_handler_string(opcode_t *opcode, callstack_frame_t *frame)
 }
 
 
+
+
+/**
+ * Creates a bool object with the provided boolean value and pushes it to the stack
+ *
+ * 0000  opcode      (1 byte)
+ * 0001  bool value  (1 byte, unsigned integer, 1=true 0=false)
+ */
 opcode_t *opcode_handler_bool(opcode_t *opcode, callstack_frame_t *frame)
 {
     data_stack_entry_t entry;
@@ -160,6 +221,11 @@ opcode_t *opcode_handler_bool(opcode_t *opcode, callstack_frame_t *frame)
 }
 
 
+/**
+ * Pop an item off the stack and prints it to stdout
+ *
+ * 0000  opcode      (1 byte)
+ */
 opcode_t *opcode_handler_print(opcode_t *opcode, callstack_frame_t *frame)
 {
     data_stack_entry_t entry;
@@ -172,6 +238,24 @@ opcode_t *opcode_handler_print(opcode_t *opcode, callstack_frame_t *frame)
 }
 
 
+/**
+ * Attempts to create a new item by popping an item of the stack and casting it
+ * to the specified data type
+ *
+ * 0000  opcode      (1 byte)
+ * 0001  data type   (1 byte, unsigned integer, values defined in in data_type_e)
+ * 0002  extra data  (2 bytes, unsigned integer, details below)
+ *
+ * details for extra data:
+ *
+ *     extra data is only used in two situations,
+ *
+ *     - when converting string to int, it is used to specify the numerical
+ *       base of the source string from 2-36 (as specified by standard snprintf docs)
+ *
+ *     - when converting float to string, it is used to specify the number of digits
+ *       after the decimal point that should be included in the output string.
+ */
 opcode_t *opcode_handler_cast(opcode_t *opcode, callstack_frame_t *frame)
 {
     data_stack_entry_t input;
@@ -214,6 +298,12 @@ opcode_t *opcode_handler_cast(opcode_t *opcode, callstack_frame_t *frame)
 }
 
 
+/**
+ * Currently, does nothing except act as sentintel to let the VM know that there
+ * are no more instructions to execute
+ *
+ * 0000  opcode      (1 byte)
+ */
 opcode_t *opcode_handler_end(opcode_t *opcode, callstack_frame_t *frame)
 {
     return opcode;
