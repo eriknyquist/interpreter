@@ -22,6 +22,9 @@
     }                                                                         \
 }
 
+
+/* Handlers for virtual machine instructions. Arranged so that the opcode_e
+ * value can be used to index the array for speedy dispatch. */
 static op_handler_t _op_handlers[NUM_OPCODES] = {
     opcode_handler_nop,              // OPCODE_NOP
     opcode_handler_add,              // OPCODE_ADD
@@ -38,11 +41,15 @@ static op_handler_t _op_handlers[NUM_OPCODES] = {
 };
 
 
+/**
+ * Creates a new stack frame and intializes the data stack in the newly-created
+ * frame with the correct size for data_stack_entry_t
+ */
 static vm_status_e init_next_callstack_frame(callstack_t *callstack)
 {
     callstack_frame_t *top_frame;
 
-    // Get pointer to the top stack frame
+    // Get pointer to the new top stack frame
     CHECK_ULIST_ERR(ulist_alloc(&callstack->frames,
                     callstack->frames.num_items, (void **) &top_frame));
 
@@ -55,6 +62,9 @@ static vm_status_e init_next_callstack_frame(callstack_t *callstack)
 }
 
 
+/**
+ * @see vm_api.h
+ */
 vm_status_e vm_create(vm_instance_t *instance)
 {
     if (NULL == instance)
@@ -71,6 +81,9 @@ vm_status_e vm_create(vm_instance_t *instance)
 }
 
 
+/**
+ * @see vm_api.h
+ */
 vm_status_e vm_destroy(vm_instance_t *instance)
 {
     callstack_frame_t *frame = NULL;
@@ -105,6 +118,9 @@ vm_status_e vm_destroy(vm_instance_t *instance)
 }
 
 
+/**
+ * @see vm_api.h
+ */
 vm_status_e vm_execute(vm_instance_t *instance, opcode_t *bytecode)
 {
     while (OPCODE_END != (opcode_e) *bytecode)
