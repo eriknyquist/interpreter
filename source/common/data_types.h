@@ -9,6 +9,7 @@
 /* Mapping between C types and virtual machine types */
 typedef int32_t vm_int_t;
 typedef double vm_float_t;
+typedef uint8_t vm_bool_t;
 
 
 /**
@@ -30,6 +31,7 @@ typedef enum
     DATATYPE_INT,
     DATATYPE_FLOAT,
     DATATYPE_STRING,
+    DATATYPE_BOOL,
     NUM_DATATYPES
 } data_type_e;
 
@@ -52,6 +54,7 @@ typedef struct
         vm_int_t int_value;               // DATATYPE_INT
         vm_float_t float_value;           // DATATYPE_FLOAT
         byte_string_t string_value;       // DATATYPE_STRING
+        vm_bool_t bool_value;             // DATATYPE_BOOL
     } payload;
 } data_object_t;
 

@@ -140,6 +140,28 @@ bytecode_status_e bytecode_emit_string(bytecode_t *program, char *value)
     return BYTECODE_OK;
 }
 
+
+bytecode_status_e bytecode_emit_bool(bytecode_t *program, vm_bool_t value)
+{
+    if (NULL == program)
+    {
+        return BYTECODE_INVALID_PARAM;
+    }
+
+    size_t op_bytes = sizeof(vm_bool_t) + 1;
+    REQUIRE_SPACE(program, op_bytes);
+
+    opcode_t *ip = program->bytecode + program->used_bytes;
+    *ip = (opcode_t) OPCODE_BOOL;
+    ip = (opcode_t *) INCREMENT_PTR_BYTES(ip, 1);
+
+    *((vm_bool_t *) ip) = value;
+
+    program->used_bytes += op_bytes;
+    return BYTECODE_OK;
+}
+
+
 /* 'data' is only used in two cases:
  *
  * - if we are casting from float to string, 'data' is the number of

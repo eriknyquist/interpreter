@@ -27,6 +27,8 @@ int main(void)
     (void) bytecode_emit_string(&program, "Hello, ");
     (void) bytecode_emit_string(&program, "world!");
     (void) bytecode_emit_add(&program);
+    (void) bytecode_emit_int(&program, 4);
+    (void) bytecode_emit_mult(&program);
     (void) bytecode_emit_print(&program);
     (void) bytecode_emit_end(&program);
 

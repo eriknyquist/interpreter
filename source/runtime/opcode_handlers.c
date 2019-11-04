@@ -80,7 +80,7 @@ opcode_t *opcode_handler_int(opcode_t *opcode, callstack_frame_t *frame)
     // Push int value onto stack
     CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &entry));
 
-    // Increment past the int value
+    // Increment past the int value and return
     return INCREMENT_PTR_BYTES(opcode, sizeof(vm_int_t));
 }
 
@@ -101,7 +101,7 @@ opcode_t *opcode_handler_float(opcode_t *opcode, callstack_frame_t *frame)
     // Push int value onto stack
     CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &entry));
 
-    // Increment past the int value
+    // Increment past the float value and return
     return INCREMENT_PTR_BYTES(opcode, sizeof(vm_float_t));
 }
 
@@ -136,6 +136,27 @@ opcode_t *opcode_handler_string(opcode_t *opcode, callstack_frame_t *frame)
 
     // Increment past string data
     return INCREMENT_PTR_BYTES(opcode, string_size);
+}
+
+
+opcode_t *opcode_handler_bool(opcode_t *opcode, callstack_frame_t *frame)
+{
+    data_stack_entry_t entry;
+
+    entry.payload.data_object.object.obj_type = OBJTYPE_DATA;
+    entry.payload.data_object.data_type = DATATYPE_BOOL;
+
+    // Increment past the opcode
+    opcode = (opcode_t *) INCREMENT_PTR_BYTES(opcode, 1);
+
+    // Grab bool value after opcode
+    entry.payload.data_object.payload.bool_value = *((vm_bool_t *) opcode);
+
+    // Push new bool value onto stack
+    CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &entry));
+
+    // Increment past the bool value and return
+    return INCREMENT_PTR_BYTES(opcode, sizeof(vm_bool_t));
 }
 
 

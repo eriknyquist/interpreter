@@ -13,16 +13,25 @@
 #define MAX_FLOAT_PLACES (32)
 
 
+/* Size allocated for string data when coverting a bool to a string object */
+#define BOOL_STRING_SIZE (6)
+
+
+/* Strings used when converting bools to string objects */
+#define BOOL_STRING_TRUE   "true"
+#define BOOL_STRING_FALSE  "false"
+
+
 /* Min/max valid values for base when converting a string object to an int
  * object, as specified by http://man7.org/linux/man-pages/man3/strtol.3.html */
 #define MIN_STRING_INT_BASE (2)
 #define MAX_STRING_INT_BASE (36)
 
 
-#define TYPE_OPS_DEF(cast_int, cast_float, cast_string,             \
-                     arith_int, arith_float, arith_string)          \
-    {.cast_functions={(cast_int), (cast_float), (cast_string)},     \
-     .arith_functions={(arith_int), (arith_float), (arith_string)}}
+#define TYPE_OPS_DEF(cast_int, cast_float, cast_string, cast_bool,                \
+                     arith_int, arith_float, arith_string, arith_bool)            \
+    {.cast_functions={(cast_int), (cast_float), (cast_string), (cast_bool)},      \
+     .arith_functions={(arith_int), (arith_float), (arith_string), (arith_bool)}} \
 
 
 typedef type_status_e (*cast_func_t) (object_t *, object_t *, uint16_t);
@@ -38,39 +47,66 @@ typedef struct
 } type_operations_t;
 
 
-/* Casting functions */
+/* Casting functions for ints */
 static type_status_e _int_to_float(object_t *, object_t *, uint16_t);     /* Cast int to float */
 static type_status_e _int_to_string(object_t *, object_t *, uint16_t);    /* Cast int to string */
+static type_status_e _int_to_bool(object_t *, object_t *, uint16_t);      /* Cast int to bool */
+
+/* Casting functions for floats */
 static type_status_e _float_to_int(object_t *, object_t *, uint16_t);     /* Cast float to int */
 static type_status_e _float_to_string(object_t *, object_t *, uint16_t);  /* Cast float to string */
+static type_status_e _float_to_bool(object_t *, object_t *, uint16_t);    /* Cast float to bool */
+
+/* Casting functions for strings */
 static type_status_e _string_to_int(object_t *, object_t *, uint16_t);    /* Cast string to int */
-static type_status_e _string_to_float(object_t *, object_t *, uint16_t);  /* Cast string to int */
+static type_status_e _string_to_float(object_t *, object_t *, uint16_t);  /* Cast string to float */
+static type_status_e _string_to_bool(object_t *, object_t *, uint16_t);   /* Cast string to bool */
+
+/* Casting functions for bools */
+static type_status_e _bool_to_int(object_t *, object_t *, uint16_t);      /* Cast bool to int */
+static type_status_e _bool_to_float(object_t *, object_t *, uint16_t);    /* Cast bool to float */
+static type_status_e _bool_to_string(object_t *, object_t *, uint16_t);   /* Cast bool to string */
 
 
 /* Arithmetic when LHS is an int */
 static type_status_e _arith_int_int(object_t *, object_t *, object_t *, arith_type_e);
 static type_status_e _arith_int_float(object_t *, object_t *, object_t *, arith_type_e);
+/* static type_status_e _arith_int_string(object_t *, object_t *, object_t *, arith_type_e);     (TODO) */
+/* static type_status_e _arith_int_bool(object_t *, object_t *, object_t *, arith_type_e);       (TODO) */
 
 
 /* Arithmetic when LHS is a float */
-static type_status_e _arith_float_float(object_t *, object_t *, object_t *, arith_type_e);
 static type_status_e _arith_float_int(object_t *, object_t *, object_t *, arith_type_e);
+static type_status_e _arith_float_float(object_t *, object_t *, object_t *, arith_type_e);
+/* static type_status_e _arith_float_string(object_t *, object_t *, object_t *, arith_type_e);   (TODO) */
+/* static type_status_e _arith_float_bool(object_t *, object_t *, object_t *, arith_type_e);     (TODO) */
 
 
 /* Arithmetic when LHS is a string */
+/* static type_status_e _arith_string_int(object_t *, object_t *, object_t *, arith_type_e);     (TODO) */
+/* static type_status_e _arith_string_float(object_t *, object_t *, object_t *, arith_type_e);   (TODO) */
 static type_status_e _arith_string_string(object_t *, object_t *, object_t *, arith_type_e);
+
+
+/* Arithmetic when LHS is a bool */
+static type_status_e _arith_bool_int(object_t *, object_t *, object_t *, arith_type_e);
+static type_status_e _arith_bool_float(object_t *, object_t *, object_t *, arith_type_e);
+/* static type_status_e _arith_bool_bool(object_t *, object_t *, object_t *, arith_type_e);      (TODO) */
 
 
 static type_operations_t _type_ops[NUM_DATATYPES] =
 {
-    TYPE_OPS_DEF(NULL, _int_to_float, _int_to_string,
-                 _arith_int_int, _arith_int_float, NULL),     // DATATYPE_INT
+    TYPE_OPS_DEF(NULL, _int_to_float, _int_to_string, _int_to_bool,
+                 _arith_int_int, _arith_int_float, NULL, NULL),           // DATATYPE_INT
 
-    TYPE_OPS_DEF(_float_to_int, NULL, _float_to_string,
-                 _arith_float_int, _arith_float_float, NULL), // DATATYPE_FLOAT
+    TYPE_OPS_DEF(_float_to_int, NULL, _float_to_string, _float_to_bool,
+                 _arith_float_int, _arith_float_float, NULL, NULL),       // DATATYPE_FLOAT
 
-    TYPE_OPS_DEF(_string_to_int, _string_to_float, NULL,
-                 NULL, NULL, _arith_string_string)            // DATATYPE_STRING
+    TYPE_OPS_DEF(_string_to_int, _string_to_float, NULL, _string_to_bool,
+                 NULL, NULL, _arith_string_string, NULL),                 // DATATYPE_STRING
+
+    TYPE_OPS_DEF(_bool_to_int, _bool_to_float, _bool_to_string, NULL,
+                 _arith_bool_int, _arith_bool_float, NULL, NULL)          // DATATYPE_BOOL
 };
 
 
@@ -114,6 +150,18 @@ static type_status_e _int_to_string(object_t *object, object_t *output, uint16_t
     data_out->data_type = DATATYPE_STRING;
     return TYPE_OK;
 }
+
+
+static type_status_e _int_to_bool(object_t *object, object_t *output, uint16_t data)
+{
+    data_object_t *data_obj = (data_object_t *) object;
+    data_object_t *data_out = (data_object_t *) output;
+
+    data_out->data_type = DATATYPE_BOOL;
+    data_out->payload.bool_value = (data_obj->payload.int_value == 0) ? 0u : 1u;
+    return TYPE_OK;
+}
+
 
 
 static type_status_e _string_to_int(object_t *object, object_t *output, uint16_t base)
@@ -175,6 +223,17 @@ static type_status_e _string_to_float(object_t *object, object_t *output, uint16
 }
 
 
+static type_status_e _string_to_bool(object_t *object, object_t *output, uint16_t base)
+{
+    data_object_t *data_obj = (data_object_t *) object;
+    data_object_t *data_out = (data_object_t *) output;
+
+    data_out->data_type = DATATYPE_BOOL;
+    data_out->payload.bool_value = (data_obj->payload.string_value.used_bytes > 0u) ? 1u : 0u;
+    return TYPE_OK;
+}
+
+
 static type_status_e _float_to_int(object_t *object, object_t *output, uint16_t data)
 {
     data_object_t *data_obj = (data_object_t *) object;
@@ -219,6 +278,67 @@ static type_status_e _float_to_string(object_t *object, object_t *output, uint16
     err = byte_string_snprintf(&data_out->payload.string_value,
                                 MAX_STRING_NUM_SIZE + places, fmt_string,
                                 data_obj->payload.float_value);
+    if (BYTE_STRING_OK != err)
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
+                    "byte_string_snprintf failed, status %d", err);
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    data_out->data_type = DATATYPE_STRING;
+    return TYPE_OK;
+}
+
+
+static type_status_e _float_to_bool(object_t *object, object_t *output, uint16_t data)
+{
+    data_object_t *data_obj = (data_object_t *) object;
+    data_object_t *data_out = (data_object_t *) output;
+
+    data_out->data_type = DATATYPE_BOOL;
+    data_out->payload.bool_value = (data_obj->payload.float_value == 0.0) ? 0u : 1u;
+    return TYPE_OK;
+}
+
+
+static type_status_e _bool_to_int(object_t *object, object_t *output, uint16_t data)
+{
+    data_object_t *data_obj = (data_object_t *) object;
+    data_object_t *data_out = (data_object_t *) output;
+
+    data_out->data_type = DATATYPE_INT;
+    data_out->payload.int_value = (vm_int_t) data_obj->payload.bool_value;
+    return TYPE_OK;
+}
+
+
+static type_status_e _bool_to_float(object_t *object, object_t *output, uint16_t data)
+{
+    data_object_t *data_obj = (data_object_t *) object;
+    data_object_t *data_out = (data_object_t *) output;
+
+    data_out->data_type = DATATYPE_FLOAT;
+    data_out->payload.float_value = (vm_float_t) data_obj->payload.bool_value;
+    return TYPE_OK;
+}
+
+
+static type_status_e _bool_to_string(object_t *object, object_t *output, uint16_t data)
+{
+    data_object_t *data_obj = (data_object_t *) object;
+    data_object_t *data_out = (data_object_t *) output;
+    byte_string_status_e err;
+
+    err = byte_string_create(&data_out->payload.string_value);
+    if (BYTE_STRING_OK != err)
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
+                    "byte_string_create failed, status %d", err);
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    err = byte_string_snprintf(&data_out->payload.string_value, BOOL_STRING_SIZE, "%s",
+                               (data_obj->payload.bool_value) ? BOOL_STRING_TRUE : BOOL_STRING_FALSE);
     if (BYTE_STRING_OK != err)
     {
         RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
@@ -478,6 +598,95 @@ static type_status_e _arith_string_string(object_t *str_a, object_t *str_b, obje
 
     return TYPE_OK;
 }
+
+
+static type_status_e _arith_bool_int(object_t *bool_a, object_t *int_b,
+                                     object_t *result, arith_type_e arith_type)
+{
+    data_object_t *data_a = (data_object_t *) bool_a;
+    data_object_t *data_b = (data_object_t *) int_b;
+    data_object_t *data_result = (data_object_t *) result;
+
+    data_result->object.obj_type = OBJTYPE_DATA;
+    data_result->data_type = DATATYPE_INT;
+
+    vm_int_t result_int;
+
+    switch (arith_type)
+    {
+        case ARITH_ADD:
+            result_int = (vm_int_t) data_a->payload.bool_value +
+                         data_b->payload.int_value;
+            break;
+
+        case ARITH_SUB:
+            result_int = (vm_int_t) data_a->payload.bool_value -
+                         data_b->payload.int_value;
+            break;
+
+        case ARITH_MULT:
+            result_int = (vm_int_t) data_a->payload.bool_value *
+                         data_b->payload.int_value;
+            break;
+
+        case ARITH_DIV:
+            result_int = (vm_int_t) data_a->payload.bool_value /
+                         data_b->payload.int_value;
+            break;
+
+        default:
+            result_int = 0;
+            break;
+    }
+
+    data_result->payload.int_value = result_int;
+    return TYPE_OK;
+}
+
+
+static type_status_e _arith_bool_float(object_t *bool_a, object_t *float_b,
+                                       object_t *result, arith_type_e arith_type)
+{
+    data_object_t *data_a = (data_object_t *) bool_a;
+    data_object_t *data_b = (data_object_t *) float_b;
+    data_object_t *data_result = (data_object_t *) result;
+
+    data_result->object.obj_type = OBJTYPE_DATA;
+    data_result->data_type = DATATYPE_FLOAT;
+
+    vm_float_t result_float;
+
+    switch (arith_type)
+    {
+        case ARITH_ADD:
+            result_float = (vm_float_t) data_a->payload.bool_value +
+                           data_b->payload.float_value;
+            break;
+
+        case ARITH_SUB:
+            result_float = (vm_float_t) data_a->payload.bool_value -
+                           data_b->payload.float_value;
+            break;
+
+        case ARITH_MULT:
+            result_float = (vm_float_t) data_a->payload.bool_value *
+                           data_b->payload.float_value;
+            break;
+
+        case ARITH_DIV:
+            result_float = (vm_float_t) data_a->payload.bool_value /
+                           data_b->payload.float_value;
+            break;
+
+        default:
+            result_float = 0.0;
+            break;
+    }
+
+    data_result->payload.float_value = result_float;
+    return TYPE_OK;
+}
+
 
 
 type_status_e type_arithmetic(object_t *lhs, object_t *rhs, object_t *result,
