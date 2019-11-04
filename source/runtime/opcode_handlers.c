@@ -251,7 +251,7 @@ opcode_t *opcode_handler_print(opcode_t *opcode, callstack_frame_t *frame)
  *     extra data is only used in two situations,
  *
  *     - when converting string to int, it is used to specify the numerical
- *       base of the source string from 2-36 (as specified by standard snprintf docs)
+ *       base of the source string from 2-36 (as specified by standard docs for strtol)
  *
  *     - when converting float to string, it is used to specify the number of digits
  *       after the decimal point that should be included in the output string.

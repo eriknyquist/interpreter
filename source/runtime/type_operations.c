@@ -34,12 +34,18 @@
      .arith_functions={(arith_int), (arith_float), (arith_string), (arith_bool)}} \
 
 
+/* Function for casting one data type to another type, creating a new object */
 typedef type_status_e (*cast_func_t) (object_t *, object_t *, uint16_t);
 
+/* Function for performing an arithmetic operation using two objects as operands,
+ * and creating a new object containing the result */
 typedef type_status_e (*arith_func_t) (object_t *, object_t *, object_t *,
                                        arith_type_e);
 
-
+/**
+ * Structure to hold function pointers for handling casting and arithmetic
+ * operations for a single data type
+ */
 typedef struct
 {
     cast_func_t cast_functions[NUM_DATATYPES];
@@ -94,6 +100,30 @@ static type_status_e _arith_bool_float(object_t *, object_t *, object_t *, arith
 /* static type_status_e _arith_bool_bool(object_t *, object_t *, object_t *, arith_type_e);      (TODO) */
 
 
+/**
+ * This table holds all function pointers required for casting or performing
+ * arithmetic with all data types. The table is arranged such that the data types
+ * of the LHS and RHS operands can be used to index the table and obtain the right
+ * function for two operands of any given data type.
+ *
+ * Example:
+ *
+ * consider the following bytecode that approximates the expression (3 + 5.0):
+ *
+ *    INT 3       // push integer with value "3" to the stack
+ *    FLOAT 5.0   // push float with value "5.0" to the stack
+ *    ADD         // pop both values, add them, push result to the stack
+ *
+ * In this situation, 3 is the LHS of the operation (because it's on the left
+ * side of the operator in the infix notation given above), and 5.0 is the RHS.
+ *
+ * In order to obtain the correct function for performing arithmetic with an int
+ * as the LHS and a float as the RHS, we first index into the array using the LHS
+ * type (int) to get the type_operations_t that contains function pointers for
+ * arithmetic with an int as the LHS. Finally, we use the type of the RHS (float)
+ * to index into the .arith_functions member of the retrieved type_operations_t
+ * structure to get a pointer to the function that will perform the desired operation
+ */
 static type_operations_t _type_ops[NUM_DATATYPES] =
 {
     TYPE_OPS_DEF(NULL, _int_to_float, _int_to_string, _int_to_bool,
@@ -688,7 +718,9 @@ static type_status_e _arith_bool_float(object_t *bool_a, object_t *float_b,
 }
 
 
-
+/**
+ * @see type_operations_api.h
+ */
 type_status_e type_arithmetic(object_t *lhs, object_t *rhs, object_t *result,
                               arith_type_e arith_type)
 {
@@ -712,6 +744,9 @@ type_status_e type_arithmetic(object_t *lhs, object_t *rhs, object_t *result,
 }
 
 
+/**
+ * @see type_operations_api.h
+ */
 type_status_e type_cast_to(object_t *object, object_t *output, data_type_e type,
                            uint16_t data)
 {
