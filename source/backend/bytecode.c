@@ -1,3 +1,7 @@
+/**
+ * Functions for generating bytecode
+ */
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
