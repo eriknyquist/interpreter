@@ -2,6 +2,8 @@
 
 #include "hashtable_api.h"
 #include "ulist_api.h"
+#include "fnv_1a_api.h"
+
 
 #define MAX_STRING_SIZE (256)
 
@@ -16,25 +18,6 @@
         return HASHTABLE_ERROR;        \
     }                                  \
 }                                      \
-
-
-static hashtable_status_e calculate_hash(char *string, uint32_t *hash)
-{
-    uint32_t calculated_hash = 7u;
-
-    for (uint32_t i = 0; string[i]; i++)
-    {
-        if (i == MAX_STRING_SIZE)
-        {
-            return HASHTABLE_KEY_TOO_LONG;
-        }
-
-        calculated_hash += ((uint8_t)string[i])  * i * 31u;
-    }
-
-    *hash = calculated_hash;
-    return HASHTABLE_OK;
-}
 
 
 /**
@@ -82,17 +65,7 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data,
         return HASHTABLE_INVALID_PARAM;
     }
 
-    uint32_t hash;
-    hashtable_status_e hash_err = calculate_hash(key, &hash);
-    if (HASHTABLE_OK != hash_err)
-    {
-        return hash_err;
-    }
-
-    if (NULL != hash_output)
-    {
-        *hash_output = hash;
-    }
+    uint32_t hash = fnv_1a_hash(key, strlen(key));
 
     ulist_t *slot = &table->table[hash % NUM_TABLE_SLOTS];
     table->collisions = 0u;
@@ -138,6 +111,11 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data,
     // Copy data
     (void) memcpy(allocd_entry->data, data, table->data_size_bytes);
 
+    if (NULL != hash_output)
+    {
+        *hash_output = hash;
+    }
+
     allocd_entry->hash = hash;
     table->used += 1u;
     return HASHTABLE_OK;
@@ -154,13 +132,7 @@ hashtable_status_e hashtable_get(hashtable_t *table, char *key, void **data_ptr)
         return HASHTABLE_INVALID_PARAM;
     }
 
-    uint32_t hash;
-    hashtable_status_e hash_err = calculate_hash(key, &hash);
-    if (HASHTABLE_OK != hash_err)
-    {
-        return hash_err;
-    }
-
+    uint32_t hash = fnv_1a_hash(key, strlen(key));
     ulist_t *slot = &table->table[hash % NUM_TABLE_SLOTS];
 
     if (0u == slot->item_size_bytes)

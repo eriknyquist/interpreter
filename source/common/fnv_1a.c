@@ -15,7 +15,7 @@
 
 
 uint32_t fnv_1a_hash(void *data, size_t size)
-{   
+{
     uint8_t * u8_data = data;
     uint32_t hash = FNV_32A_INIT;
 
