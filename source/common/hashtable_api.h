@@ -24,21 +24,11 @@ typedef enum
 
 
 /**
- * Structure representing a single entry in the hashtable
- */
-typedef struct
-{
-    uint32_t hash;   // Hash of the string key for this item
-    char data[];     // Pointer to data block; allocated by ulist.c
-} hashtable_entry_t;
-
-
-/**
  * Structure representing a hashtable
  */
 typedef struct
 {
-    ulist_t table[NUM_TABLE_SLOTS]; // Array of unrolled linked lists
+    void *table;
     size_t data_size_bytes;         // Data size of a single table entry
     size_t size;                    // Total number of slots in the table
     size_t used;                    // Number of slots used in the table
