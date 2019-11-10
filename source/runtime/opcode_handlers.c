@@ -299,6 +299,66 @@ opcode_t *opcode_handler_cast(opcode_t *opcode, callstack_frame_t *frame)
 
 
 /**
+ * Jump unconditionally to the given offset in the program data
+ *
+ * 0000  opcode                                   (1 byte)
+ * 0001  offset (in bytes) from current position  (4 bytes, signed integer)
+ */
+opcode_t *opcode_handler_jump(opcode_t *opcode, callstack_frame_t *frame)
+{
+    int32_t offset = *((int32_t *) (((uint8_t *) opcode) + 1));
+    return INCREMENT_PTR_BYTES(opcode, offset);
+}
+
+
+/**
+ * Pop a value from the stack, and cast it to a bool. If false, jump to the
+ *   given offset in the program data.
+ *
+ * 0000  opcode                                   (1 byte)
+ * 0001  offset (in bytes) from current position  (4 bytes, signed integer)
+ */
+opcode_t *opcode_handler_jump_if_false(opcode_t *opcode, callstack_frame_t *frame)
+{
+    data_object_t bool_obj;
+    data_stack_entry_t entry;
+    type_status_e err;
+
+    CHECK_ULIST_ERR_RT(ulist_pop_item(&frame->data, frame->data.num_items - 1, &entry));
+
+    // Cast popped item to bool
+    err = type_cast_to(&entry.payload.object, &bool_obj.object,
+                       DATATYPE_BOOL, 0u);
+
+    if (TYPE_OK != err)
+    {
+        if (TYPE_RUNTIME_ERROR != err)
+        {
+            RUNTIME_ERR(RUNTIME_ERROR_CAST, "Failed to cast, status %d", err);
+        }
+
+        return NULL;
+    }
+
+    opcode_t *ret;
+
+    if (bool_obj.payload.bool_value)
+    {
+        // Increment past the opcode and offset data
+        ret = INCREMENT_PTR_BYTES(opcode, 1 + sizeof(int32_t));
+    }
+    else
+    {
+        // Jump to the given offset
+        int32_t offset = *((int32_t *) (((uint8_t *) opcode) + 1));
+        ret = INCREMENT_PTR_BYTES(opcode, offset);
+    }
+
+    return ret;
+}
+
+
+/**
  * Currently, does nothing except act as sentintel to let the VM know that there
  * are no more instructions to execute
  *

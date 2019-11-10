@@ -201,6 +201,50 @@ bytecode_status_e bytecode_emit_cast(bytecode_t *program, data_type_e data_type,
 }
 
 
+bytecode_status_e bytecode_emit_jump(bytecode_t *program, int32_t offset)
+{
+    if (NULL == program)
+    {
+        return BYTECODE_INVALID_PARAM;
+    }
+
+    size_t op_bytes = 1 + sizeof(uint8_t) + sizeof(int32_t);
+    REQUIRE_SPACE(program, op_bytes);
+
+    opcode_t *ip = program->bytecode + program->used_bytes;
+
+    *ip = (opcode_t) OPCODE_JUMP;
+    ip = (opcode_t *) INCREMENT_PTR_BYTES(ip, 1);
+
+    *((int32_t *) ip) = offset;
+
+    program->used_bytes += op_bytes;
+    return BYTECODE_OK;
+}
+
+
+bytecode_status_e bytecode_emit_jump_if_false(bytecode_t *program, int32_t offset)
+{
+    if (NULL == program)
+    {
+        return BYTECODE_INVALID_PARAM;
+    }
+
+    size_t op_bytes = 1 + sizeof(uint8_t) + sizeof(int32_t);
+    REQUIRE_SPACE(program, op_bytes);
+
+    opcode_t *ip = program->bytecode + program->used_bytes;
+
+    *ip = (opcode_t) OPCODE_JUMP_IF_FALSE;
+    ip = (opcode_t *) INCREMENT_PTR_BYTES(ip, 1);
+
+    *((int32_t *) ip) = offset;
+
+    program->used_bytes += op_bytes;
+    return BYTECODE_OK;
+}
+
+
 static bytecode_status_e _single_byte_op(bytecode_t *program, opcode_e op)
 {
     if (NULL == program)

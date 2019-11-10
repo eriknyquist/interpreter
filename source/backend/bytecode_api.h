@@ -37,18 +37,20 @@ typedef struct
 /* Enumeration of all valid opcode values */
 typedef enum
 {
-    OPCODE_NOP,          // Do nothing
-    OPCODE_ADD,          // Pop two values, add them, push result
-    OPCODE_SUB,          // Pop two values, subtract one from the other, push result
-    OPCODE_MULT,         // Pop two values, multiply them, push result
-    OPCODE_DIV,          // Pop two values, divide ome by the other, push result
-    OPCODE_INT,          // Create new integer value and push
-    OPCODE_FLOAT,        // Create new float value and push
-    OPCODE_STRING,       // Create new string value and push
-    OPCODE_BOOL,         // Create new bool value and push
-    OPCODE_PRINT,        // Pop a value and print it
-    OPCODE_CAST,         // Pop a value, cast it to another type, push result
-    OPCODE_END,          // Sentinel value indicating end of the program
+    OPCODE_NOP,           // Do nothing
+    OPCODE_ADD,           // Pop two values, add them, push result
+    OPCODE_SUB,           // Pop two values, subtract one from the other, push result
+    OPCODE_MULT,          // Pop two values, multiply them, push result
+    OPCODE_DIV,           // Pop two values, divide ome by the other, push result
+    OPCODE_INT,           // Create new integer value and push
+    OPCODE_FLOAT,         // Create new float value and push
+    OPCODE_STRING,        // Create new string value and push
+    OPCODE_BOOL,          // Create new bool value and push
+    OPCODE_PRINT,         // Pop a value and print it
+    OPCODE_CAST,          // Pop a value, cast it to another type, push result
+    OPCODE_JUMP,          // Jump to offset unconditionally
+    OPCODE_JUMP_IF_FALSE, // Pop a value, cast to bool, jump to offset if false
+    OPCODE_END,           // Sentinel value indicating end of the program
     NUM_OPCODES
 } opcode_e;
 
@@ -141,6 +143,27 @@ bytecode_status_e bytecode_emit_bool(bytecode_t *program, vm_bool_t value);
  */
 bytecode_status_e bytecode_emit_cast(bytecode_t *program, data_type_e data_type,
                                      uint16_t data);
+
+/**
+ * Add JUMP instruction to a bytecode chunk
+ *
+ * @param    program   Pointer to bytecode_t instance
+ * @param    offset    Offset to jump to, in bytes, relative to current position
+ *
+ * @return   BYTECODE_OK if instruction was addedd successfuly
+ */
+bytecode_status_e bytecode_emit_jump(bytecode_t *program, int32_t offset);
+
+
+/**
+ * Add JUMP_IF_FALSE instruction to a bytecode chunk
+ *
+ * @param    program   Pointer to bytecode_t instance
+ * @param    offset    Offset to jump to, in bytes, relative to current position
+ *
+ * @return   BYTECODE_OK if instruction was addedd successfuly
+ */
+bytecode_status_e bytecode_emit_jump_if_false(bytecode_t *program, int32_t offset);
 
 
 /**

@@ -37,6 +37,8 @@ static op_handler_t _op_handlers[NUM_OPCODES] = {
     opcode_handler_bool,             // OPCODE_BOOL
     opcode_handler_print,            // OPCODE_PRINT
     opcode_handler_cast,             // OPCODE_CAST
+    opcode_handler_jump,             // OPCODE_JUMP
+    opcode_handler_jump_if_false,    // OPCODE_JUMP_IF_FALSE
     opcode_handler_end               // OPCODE_END
 };
 

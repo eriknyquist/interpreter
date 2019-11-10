@@ -38,6 +38,7 @@ disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t num_instru
     }
 
     uint8_t *ip;
+    int32_t offset;
     size_t bytes_consumed = 0;
     size_t instructions_consumed = 0;
 
@@ -114,6 +115,22 @@ disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t num_instru
                 uint8_t datatype_u8 = *ip;
                 printf("CAST %s", _datatype_name((data_type_e) datatype_u8));
                 bytes_consumed += 2;
+                break;
+
+            case OPCODE_JUMP:
+                ip += 1;
+
+                offset = *((uint32_t *) ip);
+                printf("JUMP %d", offset);
+                bytes_consumed += 1 + sizeof(int32_t);
+                break;
+
+            case OPCODE_JUMP_IF_FALSE:
+                ip += 1;
+
+                offset = *((uint32_t *) ip);
+                printf("JUMP_IF_FALSE %d", offset);
+                bytes_consumed += 1 + sizeof(int32_t);
                 break;
 
             case OPCODE_END:
