@@ -90,7 +90,7 @@ static hashtable_entry_t *_find_used_slot(hashtable_t *table, uint32_t hash)
             // Found the entry we're looking for
             if (entry->hash == hash)
             {
-                break;
+                return entry;
             }
         }
 
@@ -98,15 +98,7 @@ static hashtable_entry_t *_find_used_slot(hashtable_t *table, uint32_t hash)
         entry = INDEX_TABLE(table, index);
     }
 
-    /* Since we never let the table get totally full, and deleted entries
-     * _do_ count against the load percentage, we can be sure that a search for
-     * a non-existent key will end with an UNUSED entry */
-    if (ENTRY_STATUS_UNUSED == (hashtable_entry_status_e) entry->status)
-    {
-        return NULL;
-    }
-
-    return entry;
+    return NULL;
 }
 
 
