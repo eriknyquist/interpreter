@@ -45,6 +45,7 @@ debug: $(BUILD_OUTPUT)
 $(BUILD_OUTPUT): output_dir $(OBJ_FILES)
 	$(CC) $(LFLAGS) $(OBJ_FILES) -o $@
 
+hashtable_test: CFLAGS += -g -O0
 hashtable_test: $(HASHTABLE_TEST)
 
 $(HASHTABLE_TEST): output_dir $(HASHTABLE_TEST_OBJ_FILES)
