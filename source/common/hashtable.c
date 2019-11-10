@@ -127,6 +127,8 @@ static hashtable_status_e _resize_table(hashtable_t *table, size_t new_size)
     }
 
     table->size = new_size;
+    table->used = 0u;
+
     _init_new_table(table);
 
     /* Insert all entries into new table, re-using the hashes we already
@@ -145,6 +147,7 @@ static hashtable_status_e _resize_table(hashtable_t *table, size_t new_size)
 
         hashtable_entry_t *new_entry = _find_empty_slot(table, old_entry->hash);
         memcpy(new_entry, old_entry, ENTRY_SIZE_BYTES(table));
+        table->used += 1u;
     }
 
     free(old_table);
