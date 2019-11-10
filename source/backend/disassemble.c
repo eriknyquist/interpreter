@@ -113,8 +113,13 @@ disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t num_instru
                 ip += 1;
 
                 uint8_t datatype_u8 = *ip;
-                printf("CAST %s", _datatype_name((data_type_e) datatype_u8));
-                bytes_consumed += 2;
+                ip += 1;
+
+                uint16_t extra_data = *((uint16_t *) ip);
+
+                printf("CAST %s %d", _datatype_name((data_type_e) datatype_u8),
+                                     extra_data);
+                bytes_consumed += 1 + sizeof(uint8_t) + sizeof(uint16_t);
                 break;
 
             case OPCODE_JUMP:
