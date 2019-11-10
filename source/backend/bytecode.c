@@ -245,6 +245,52 @@ bytecode_status_e bytecode_emit_jump_if_false(bytecode_t *program, int32_t offse
 }
 
 
+bytecode_status_e bytecode_emit_backpatched_jump(bytecode_t *program,
+                                                 uint32_t *position)
+{
+    if (NULL == position)
+    {
+        return BYTECODE_INVALID_PARAM;
+    }
+
+    *position = program->used_bytes;
+    (void) bytecode_emit_jump(program, 0);
+    return BYTECODE_OK;
+}
+
+
+bytecode_status_e bytecode_emit_backpatched_jump_if_false(bytecode_t *program,
+                                                          uint32_t *position)
+{
+    if (NULL == position)
+    {
+        return BYTECODE_INVALID_PARAM;
+    }
+
+    *position = program->used_bytes;
+    (void) bytecode_emit_jump_if_false(program, 0);
+    return BYTECODE_OK;
+}
+
+
+bytecode_status_e bytecode_backpatch_jump(bytecode_t *program, uint32_t position,
+                                          int32_t offset)
+{
+    if (NULL == program)
+    {
+        return BYTECODE_INVALID_PARAM;
+    }
+
+    // +1 byte to skip the opcode
+    uint8_t *patch_location = ((uint8_t *) program->bytecode) + position + 1u;
+
+    // Insert the new offset value
+    *((int32_t *) patch_location) = offset;
+
+    return BYTECODE_OK;
+}
+
+
 static bytecode_status_e _single_byte_op(bytecode_t *program, opcode_e op)
 {
     if (NULL == program)

@@ -167,6 +167,50 @@ bytecode_status_e bytecode_emit_jump_if_false(bytecode_t *program, int32_t offse
 
 
 /**
+ * Add JUMP instruction to a bytecode chunk, but omit the offset value, to be
+ * filled in later.
+ *
+ * @param    program   Pointer to bytecode_t instance
+ * @param    position  Pointer to location to store the position of the instruction
+ *                     that is being added. This should be saved by the caller so
+ *                     it can be used later to backpatch the offset value, when
+ *                     the offset value is available
+ *
+ * @return   BYTECODE_OK if instruction was addedd successfuly
+ */
+bytecode_status_e bytecode_emit_backpatched_jump(bytecode_t *program,
+                                                 uint32_t *position);
+
+
+/**
+ * Add JUMP_IF_FALSE instruction to a bytecode chunk, but omit the offset value,
+ * to be filled in later.
+ *
+ * @param    program   Pointer to bytecode_t instance
+ * @param    position  Pointer to location to store the position of the instruction
+ *                     that is being added. This should be saved by the caller so
+ *                     it can be used later to backpatch the offset value, when
+ *                     the offset value is available
+ *
+ * @return   BYTECODE_OK if instruction was addedd successfuly
+ */
+bytecode_status_e bytecode_emit_backpatched_jump_if_false(bytecode_t *program,
+                                                          uint32_t *position);
+
+
+/**
+ * Backpatch a jump instruction that was previously added without an offset value
+ *
+ * @param    program   Pointer to bytecode_t instance
+ * @param    position  Position value that was populated when backpatched instruction
+ *                     was emitted
+ * @param    offset    Offset value to be patched in
+ */
+bytecode_status_e bytecode_backpatch_jump(bytecode_t *program, uint32_t position,
+                                          int32_t offset);
+
+
+/**
  * Add ADD instruction to a bytecode chunk
  *
  * @param    program   Pointer to bytecode_t instance

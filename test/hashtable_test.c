@@ -13,7 +13,7 @@
 #define MAX_STRING_SIZE (32)
 
 
-#define NUM_ENTRIES_TO_TEST (5000)
+#define NUM_ENTRIES_TO_TEST (10000)
 
 
 typedef struct
