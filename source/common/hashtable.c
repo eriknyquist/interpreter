@@ -63,10 +63,10 @@ static hashtable_entry_t *_find_empty_slot(hashtable_t *table, uint32_t hash)
     // Get the first entry to try
     hashtable_entry_t *entry = INDEX_TABLE(table, index);
 
-    while ((ENTRY_STATUS_UNUSED != (hashtable_entry_status_e) entry->status) &&
-           (ENTRY_STATUS_DELETED != (hashtable_entry_status_e) entry->status))
+    while (ENTRY_STATUS_USED == (hashtable_entry_status_e) entry->status)
     {
-        // Keep going around (linear probing) until we find an unused entry.
+        /* Keep going around (linear probing) until we find an unused
+         * or deleted entry. */
         index = (index + 1u) % table->size;
         entry = INDEX_TABLE(table, index);
     }
@@ -147,6 +147,7 @@ static hashtable_status_e _resize_table(hashtable_t *table, size_t new_size)
         memcpy(new_entry, old_entry, ENTRY_SIZE_BYTES(table));
     }
 
+    free(old_table);
     return HASHTABLE_OK;
 }
 
