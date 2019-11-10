@@ -281,8 +281,17 @@ bytecode_status_e bytecode_backpatch_jump(bytecode_t *program, uint32_t position
         return BYTECODE_INVALID_PARAM;
     }
 
+    uint8_t *patch_location = ((uint8_t *) program->bytecode) + position;
+
+    // Sanity check on patch location
+    opcode_e opcode = (opcode_e) *patch_location;
+    if ((OPCODE_JUMP != opcode) && (OPCODE_JUMP_IF_FALSE != opcode))
+    {
+        return BYTECODE_INVALID_BACKPATCH;
+    }
+
     // +1 byte to skip the opcode
-    uint8_t *patch_location = ((uint8_t *) program->bytecode) + position + 1u;
+    patch_location += 1u;
 
     // Insert the new offset value
     *((int32_t *) patch_location) = offset;

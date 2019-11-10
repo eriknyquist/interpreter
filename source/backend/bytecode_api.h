@@ -14,10 +14,11 @@
 /* Error codes returned by bytecode generation functions */
 typedef enum
 {
-    BYTECODE_OK,
-    BYTECODE_INVALID_PARAM,
-    BYTECODE_MEMORY_ERROR,
-    BYTECODE_ERROR
+    BYTECODE_OK,                 // Operation completed successfully
+    BYTECODE_INVALID_PARAM,      // Invalid parameter passed to function
+    BYTECODE_INVALID_BACKPATCH,  // Position value points to instruction that can't be backpatched
+    BYTECODE_MEMORY_ERROR,       // Failed to allocate memory
+    BYTECODE_ERROR               // Unspecified internal error
 } bytecode_status_e;
 
 
