@@ -9,15 +9,18 @@
 #define INITIAL_TABLE_SIZE (64)
 
 
+// Calculates the size of a single table entry in bytes
 #define ENTRY_SIZE_BYTES(table) \
     ((table)->data_size_bytes + sizeof(hashtable_entry_t))
 
 
+// Gets a pointer to the entry at the provided index
 #define INDEX_TABLE(table, index) \
     (hashtable_entry_t *) \
     (((uint8_t *) table->table) + (ENTRY_SIZE_BYTES(table) * (index)))
 
 
+// If the table load percentage reaches this value or higher, we will resize
 #define MAX_TABLE_LOAD_PERCENTAGE   (70)
 
 
@@ -91,14 +94,13 @@ static hashtable_entry_t *_find_used_slot(hashtable_t *table, uint32_t hash)
             }
         }
 
-        // Keep going around (linear probing) until we find an unused entry.
         index = (index + 1u) % table->size;
         entry = INDEX_TABLE(table, index);
     }
 
-    /* Since we never let the table grow beyond 75% load, and deleted entries
-     * _do_ count against the load, we can be sure that a search for a
-     * non-existent key will end with an UNUSED entry */
+    /* Since we never let the table get totally full, and deleted entries
+     * _do_ count against the load percentage, we can be sure that a search for
+     * a non-existent key will end with an UNUSED entry */
     if (ENTRY_STATUS_UNUSED == (hashtable_entry_status_e) entry->status)
     {
         return NULL;
@@ -249,5 +251,28 @@ hashtable_status_e hashtable_get(hashtable_t *table, char *key, void **data_ptr)
     }
 
     *data_ptr = entry->data;
+    return HASHTABLE_OK;
+}
+
+
+/**
+ * @see hashtable_api.h
+ */
+hashtable_status_e hashtable_delete(hashtable_t *table, char *key)
+{
+    if ((NULL == table) || (NULL == key))
+    {
+        return HASHTABLE_INVALID_PARAM;
+    }
+
+    uint32_t hash = fnv_1a_hash(key, strlen(key));
+
+    hashtable_entry_t *entry = _find_used_slot(table, hash);
+    if (NULL == entry)
+    {
+        return HASHTABLE_NO_ITEM;
+    }
+
+    entry->status = (uint8_t) ENTRY_STATUS_DELETED;
     return HASHTABLE_OK;
 }
