@@ -57,6 +57,7 @@ static int _verify_hashtable_state(hashtable_t *hashtable)
         int *data;
         test_data_t *entry = test_hashtable_entries + i;
 
+        err = hashtable_get(hashtable, entry->key, (void **) &data);
         if (entry->deleted)
         {
             // Expecting get operation to fail, item is deleted
