@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 #include "type_operations_api.h"
 #include "opcode_handlers.h"
 
@@ -77,7 +78,7 @@ static type_status_e _bool_to_string(object_t *, object_t *, uint16_t);   /* Cas
 /* Arithmetic when LHS is an int */
 static type_status_e _arith_int_int(object_t *, object_t *, object_t *, arith_type_e);
 static type_status_e _arith_int_float(object_t *, object_t *, object_t *, arith_type_e);
-/* static type_status_e _arith_int_string(object_t *, object_t *, object_t *, arith_type_e);     (TODO) */
+static type_status_e _arith_int_string(object_t *, object_t *, object_t *, arith_type_e);
 /* static type_status_e _arith_int_bool(object_t *, object_t *, object_t *, arith_type_e);       (TODO) */
 
 
@@ -89,7 +90,7 @@ static type_status_e _arith_float_float(object_t *, object_t *, object_t *, arit
 
 
 /* Arithmetic when LHS is a string */
-/* static type_status_e _arith_string_int(object_t *, object_t *, object_t *, arith_type_e);     (TODO) */
+static type_status_e _arith_string_int(object_t *, object_t *, object_t *, arith_type_e);
 /* static type_status_e _arith_string_float(object_t *, object_t *, object_t *, arith_type_e);   (TODO) */
 static type_status_e _arith_string_string(object_t *, object_t *, object_t *, arith_type_e);
 
@@ -127,17 +128,54 @@ static type_status_e _arith_bool_float(object_t *, object_t *, object_t *, arith
 static type_operations_t _type_ops[NUM_DATATYPES] =
 {
     TYPE_OPS_DEF(NULL, _int_to_float, _int_to_string, _int_to_bool,
-                 _arith_int_int, _arith_int_float, NULL, NULL),           // DATATYPE_INT
+                 _arith_int_int, _arith_int_float, _arith_int_string, NULL), // DATATYPE_INT
 
     TYPE_OPS_DEF(_float_to_int, NULL, _float_to_string, _float_to_bool,
-                 _arith_float_int, _arith_float_float, NULL, NULL),       // DATATYPE_FLOAT
+                 _arith_float_int, _arith_float_float, NULL, NULL),          // DATATYPE_FLOAT
 
     TYPE_OPS_DEF(_string_to_int, _string_to_float, NULL, _string_to_bool,
-                 NULL, NULL, _arith_string_string, NULL),                 // DATATYPE_STRING
+                 _arith_string_int, NULL, _arith_string_string, NULL),       // DATATYPE_STRING
 
     TYPE_OPS_DEF(_bool_to_int, _bool_to_float, _bool_to_string, NULL,
-                 _arith_bool_int, _arith_bool_float, NULL, NULL)          // DATATYPE_BOOL
+                 _arith_bool_int, _arith_bool_float, NULL, NULL)             // DATATYPE_BOOL
 };
+
+
+static type_status_e _multiply_string(vm_int_t int_value, byte_string_t *string_value,
+                                      byte_string_t *result_string)
+{
+    byte_string_status_e err;
+
+    if (BYTE_STRING_OK != (err = byte_string_create(result_string)))
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
+                    "byte_string_create failed, status %d", err);
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    /* Ensure result string has enough space to hold multiple copies of result
+     * string data, but we'll drop the null byte on all but the last */
+    size_t result_string_size = ((string_value->used_bytes * int_value) - int_value) + 1;
+
+    if (BYTE_STRING_OK != (err = byte_string_add_bytes(result_string,
+                                                       result_string_size,
+                                                       NULL)))
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
+                    "byte_string_add_bytes failed, status %d", err);
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    // Build new string by making multiple copies of the source string
+    for (vm_int_t i = 0; i < int_value; i++)
+    {
+        uint8_t *target = result_string->bytes + (i * (string_value->used_bytes - 1));
+        (void) memcpy(target, string_value->bytes, string_value->used_bytes - 1);
+    }
+
+    result_string->bytes[result_string_size - 1] = '\0';
+    return TYPE_OK;
+}
 
 
 /* Casting functions */
@@ -466,6 +504,34 @@ static type_status_e _arith_int_float(object_t *int_a, object_t *float_b,
 }
 
 
+static type_status_e _arith_int_string(object_t *int_a, object_t *string_b,
+                                       object_t *result, arith_type_e arith_type)
+{
+    if (ARITH_MULT != arith_type)
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
+                    "Can't perform operation with int and string");
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    vm_int_t int_value = ((data_object_t *) int_a)->payload.int_value;
+    byte_string_t *string_value = &((data_object_t *) string_b)->payload.string_value;
+    data_object_t *data_result = (data_object_t *) result;
+    byte_string_t *result_string = &data_result->payload.string_value;
+
+    data_result->object.obj_type = OBJTYPE_DATA;
+    data_result->data_type = DATATYPE_STRING;
+
+    if (TYPE_OK != _multiply_string(int_value, string_value, result_string))
+    {
+        // _multiply_string only returns success or runtime error
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    return TYPE_OK;
+}
+
+
 static type_status_e _arith_float_int(object_t *float_a, object_t *int_b,
                              object_t *result, arith_type_e arith_type)
 {
@@ -595,27 +661,27 @@ static type_status_e _arith_string_string(object_t *str_a, object_t *str_b, obje
     switch (arith_type)
     {
         case ARITH_ADD:
-            // Add LHS string to result
+            // Make sure we have enough space for both strings, but only need 1 null byte
             if (BYTE_STRING_OK != (err = byte_string_add_bytes(result_string,
-                                                               lhs_string->used_bytes,
-                                                               lhs_string->bytes)))
+                                                               (lhs_string->used_bytes +
+                                                               rhs_string->used_bytes) - 1,
+                                                               NULL)))
             {
                 RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
                             "byte_string_add_bytes failed, status %d", err);
                 return TYPE_RUNTIME_ERROR;
             }
 
-            // Add RHS string to result
-            if (BYTE_STRING_OK != (err = byte_string_add_bytes(result_string,
-                                                               rhs_string->used_bytes,
-                                                               rhs_string->bytes)))
-            {
-                RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
-                            "byte_string_add_bytes failed, status %d", err);
-            }
+            // Add LHS string to result (skip null byte)
+            (void) memcpy(result_string->bytes, lhs_string->bytes,
+                          lhs_string->used_bytes - 1);
+
+            // Add RHS string to result (skip null byte)
+            (void) memcpy(result_string->bytes + (lhs_string->used_bytes - 1),
+                          rhs_string->bytes, rhs_string->used_bytes - 1);
 
             // Ensure string is NULL terminated
-            result_string->bytes[result_string->used_bytes] = '\0';
+            result_string->bytes[result_string->used_bytes - 1] = '\0';
             break;
 
         case ARITH_MULT:
@@ -624,6 +690,34 @@ static type_status_e _arith_string_string(object_t *str_a, object_t *str_b, obje
         default:
             // Nothing to do
             break;
+    }
+
+    return TYPE_OK;
+}
+
+
+static type_status_e _arith_string_int(object_t *string_a, object_t *int_b,
+                                       object_t *result, arith_type_e arith_type)
+{
+    if (ARITH_MULT != arith_type)
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
+                    "Can't perform operation with string and int");
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    vm_int_t int_value = ((data_object_t *) int_b)->payload.int_value;
+    byte_string_t *string_value = &((data_object_t *) string_a)->payload.string_value;
+    data_object_t *data_result = (data_object_t *) result;
+    byte_string_t *result_string = &data_result->payload.string_value;
+
+    data_result->object.obj_type = OBJTYPE_DATA;
+    data_result->data_type = DATATYPE_STRING;
+
+    if (TYPE_OK != _multiply_string(int_value, string_value, result_string))
+    {
+        // _multiple_string only returns success or runtime error
+        return TYPE_RUNTIME_ERROR;
     }
 
     return TYPE_OK;

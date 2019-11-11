@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "print_object_api.h"
 #include "bytecode_api.h"
 #include "ulist_api.h"
@@ -180,9 +182,14 @@ opcode_t *opcode_handler_string(opcode_t *opcode, callstack_frame_t *frame)
 
     CHECK_BYTESTR_ERR_RT(byte_string_create(string));
 
-    /* Read string data into byte string object (+1 to ensure we copy the
-     * trailing null byte as well) */
-    CHECK_BYTESTR_ERR_RT(byte_string_add_bytes(string, string_size + 1, opcode));
+    // +1 to leave space for trailing null byte
+    CHECK_BYTESTR_ERR_RT(byte_string_add_bytes(string, string_size + 1, NULL));
+
+    // Copy string data from bytecode
+    (void) memcpy(string->bytes, opcode, string_size);
+
+    // Add trailing null byte
+    string->bytes[string_size] = '\0';
 
     // Push byte string value onto stack
     CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &entry));
