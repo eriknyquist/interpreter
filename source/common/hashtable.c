@@ -24,6 +24,10 @@
 #define MAX_TABLE_LOAD_PERCENTAGE   (70)
 
 
+// Calculate the table load percentage
+#define LOAD_PERCENTAGE(table) (((table)->used * 100u) / (table)->size)
+
+
 /**
  * Enumeration of all possible states that a hashtable entry can be in
  */
@@ -138,7 +142,7 @@ static hashtable_status_e _resize_table(hashtable_t *table, size_t new_size)
         }
 
         hashtable_entry_t *new_entry = _find_empty_slot(table, old_entry->hash);
-        memcpy(new_entry, old_entry, ENTRY_SIZE_BYTES(table));
+        (void) memcpy(new_entry, old_entry, ENTRY_SIZE_BYTES(table));
         table->used += 1u;
     }
 
@@ -196,8 +200,7 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data,
 
 
     // Check table load factor, resize if needed
-    size_t load_percentage = (table->used * 100u) / table->size;
-    if (MAX_TABLE_LOAD_PERCENTAGE <= load_percentage)
+    if (MAX_TABLE_LOAD_PERCENTAGE <= LOAD_PERCENTAGE(table))
     {
         size_t new_size = table->size * 2u;
         hashtable_status_e err = _resize_table(table, new_size);
@@ -218,7 +221,7 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data,
     }
 
     // Populate entry
-    memcpy(entry->data, data, table->data_size_bytes);
+    (void) memcpy(entry->data, data, table->data_size_bytes);
 
     entry->hash = hash;
     entry->status = (uint8_t) ENTRY_STATUS_USED;
