@@ -22,24 +22,29 @@
     }                                                                         \
 }
 
+typedef struct{
+    op_handler_t handler;    // handler for opcode
+    size_t bytes;            // bytecode size in bytes, excluding the opcode
+} op_handler_info_t;
+
 
 /* Handlers for virtual machine instructions. Arranged so that the opcode_e
  * value can be used to index the array for speedy dispatch. */
-static op_handler_t _op_handlers[NUM_OPCODES] = {
-    opcode_handler_nop,              // OPCODE_NOP
-    opcode_handler_add,              // OPCODE_ADD
-    opcode_handler_sub,              // OPCODE_SUB
-    opcode_handler_mult,             // OPCODE_MULT
-    opcode_handler_div,              // OPCODE_DIV
-    opcode_handler_int,              // OPCODE_INT
-    opcode_handler_float,            // OPCODE_FLOAT
-    opcode_handler_string,           // OPCODE_STRING
-    opcode_handler_bool,             // OPCODE_BOOL
-    opcode_handler_print,            // OPCODE_PRINT
-    opcode_handler_cast,             // OPCODE_CAST
-    opcode_handler_jump,             // OPCODE_JUMP
-    opcode_handler_jump_if_false,    // OPCODE_JUMP_IF_FALSE
-    opcode_handler_end               // OPCODE_END
+static op_handler_info_t _op_handlers[NUM_OPCODES] = {
+    {.handler=opcode_handler_nop,           .bytes=0u},                 // OPCODE_NOP
+    {.handler=opcode_handler_add,           .bytes=0u},                 // OPCODE_ADD
+    {.handler=opcode_handler_sub,           .bytes=0u},                 // OPCODE_SUB
+    {.handler=opcode_handler_mult,          .bytes=0u},                 // OPCODE_MULT
+    {.handler=opcode_handler_div,           .bytes=0u},                 // OPCODE_DIV
+    {.handler=opcode_handler_int,           .bytes=sizeof(vm_int_t)},   // OPCODE_INT
+    {.handler=opcode_handler_float,         .bytes=sizeof(vm_float_t)}, // OPCODE_FLOAT
+    {.handler=opcode_handler_string,        .bytes=0u},                 // OPCODE_STRING
+    {.handler=opcode_handler_bool,          .bytes=sizeof(vm_bool_t)},  // OPCODE_BOOL
+    {.handler=opcode_handler_print,         .bytes=0u},                 // OPCODE_PRINT
+    {.handler=opcode_handler_cast,          .bytes=sizeof(uint16_t)},   // OPCODE_CAST
+    {.handler=opcode_handler_jump,          .bytes=sizeof(int32_t)},    // OPCODE_JUMP
+    {.handler=opcode_handler_jump_if_false, .bytes=sizeof(int32_t)},    // OPCODE_JUMP_IF_FALSE
+    {.handler=opcode_handler_end,           .bytes=0u},                 // OPCODE_END
 };
 
 
@@ -120,6 +125,46 @@ vm_status_e vm_destroy(vm_instance_t *instance)
 }
 
 
+vm_status_e vm_verify(opcode_t *bytecode, size_t max_bytes)
+{
+    uint8_t *bytes = (uint8_t *) bytecode;
+    uint32_t i;
+
+    for (i = 0; i < max_bytes; i++)
+    {
+        if (NUM_OPCODES <= bytes[i])
+        {
+            return VM_INVALID_OPCODE;
+        }
+
+        opcode_e op = (opcode_e) bytes[i];
+        size_t extra_bytes_to_increment;
+
+        if (OPCODE_STRING == op)
+        {
+            // Special case for string, variable bytecode length
+            uint32_t string_bytes = *((uint32_t *) (bytes + i + 1u));
+            extra_bytes_to_increment = sizeof(uint32_t) + string_bytes;
+        }
+        else
+        {
+            op_handler_info_t *handler_info = _op_handlers + op;
+            extra_bytes_to_increment = handler_info->bytes;
+        }
+
+        i += extra_bytes_to_increment;
+    }
+
+    opcode_e last_op = bytes[i - 1];
+    if (OPCODE_END != last_op)
+    {
+        return VM_INVALID_OPCODE;
+    }
+
+    return VM_OK;
+}
+
+
 /**
  * @see vm_api.h
  */
@@ -127,17 +172,10 @@ vm_status_e vm_execute(vm_instance_t *instance, opcode_t *bytecode)
 {
     while (OPCODE_END != (opcode_e) *bytecode)
     {
-        if (NUM_OPCODES <= *bytecode)
-        {
-            RUNTIME_ERR(RUNTIME_ERROR_INVALID_OPCODE,
-                        "Unrecognised opcode %d\n", *bytecode);
-            return VM_RUNTIME_ERROR;
-        }
-
         opcode_e op = (opcode_e) *bytecode;
-        op_handler_t handler = _op_handlers[op];
+        op_handler_info_t *handler_info = _op_handlers + op;
 
-        bytecode = handler(bytecode, instance->callstack.current_frame);
+        bytecode = handler_info->handler(bytecode, instance->callstack.current_frame);
         if (NULL == bytecode)
         {
             instance->runtime_error = runtime_error_get();

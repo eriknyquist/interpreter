@@ -44,6 +44,12 @@ int main(void)
     vm_status_e vm_err;
     vm_instance_t ins;
 
+    if ((vm_err = vm_verify(program.bytecode, program.used_bytes)) != VM_OK)
+    {
+        printf("vm_verify failed, status %d\n", vm_err);
+        return vm_err;
+    }
+
     if ((vm_err = vm_create(&ins)) != VM_OK)
     {
         printf("vm_create failed, status %d\n", vm_err);
