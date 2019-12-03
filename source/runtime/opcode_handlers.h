@@ -23,50 +23,56 @@ typedef struct
 
 
 /* Handler function for opcodes */
-typedef opcode_t *(*op_handler_t)(opcode_t *, callstack_frame_t *);
+typedef opcode_t *(*op_handler_t)(opcode_t *, vm_instance_t *);
 
 
 
-opcode_t *opcode_handler_nop(opcode_t *opcode, callstack_frame_t *frame);
+opcode_t *opcode_handler_nop(opcode_t *opcode, vm_instance_t *instance);
 
 
-opcode_t *opcode_handler_add(opcode_t *opcode, callstack_frame_t *frame);
+opcode_t *opcode_handler_add(opcode_t *opcode, vm_instance_t *instance);
 
 
-opcode_t *opcode_handler_sub(opcode_t *opcode, callstack_frame_t *frame);
+opcode_t *opcode_handler_sub(opcode_t *opcode, vm_instance_t *instance);
 
 
-opcode_t *opcode_handler_mult(opcode_t *opcode, callstack_frame_t *frame);
+opcode_t *opcode_handler_mult(opcode_t *opcode, vm_instance_t *instance);
 
 
-opcode_t *opcode_handler_div(opcode_t *opcode, callstack_frame_t *frame);
+opcode_t *opcode_handler_div(opcode_t *opcode, vm_instance_t *instance);
 
 
-opcode_t *opcode_handler_int(opcode_t *opcode, callstack_frame_t *frame);
+opcode_t *opcode_handler_int(opcode_t *opcode, vm_instance_t *instance);
 
 
-opcode_t *opcode_handler_float(opcode_t *opcode, callstack_frame_t *frame);
+opcode_t *opcode_handler_float(opcode_t *opcode, vm_instance_t *instance);
 
 
-opcode_t *opcode_handler_string(opcode_t *opcode, callstack_frame_t *frame);
+opcode_t *opcode_handler_string(opcode_t *opcode, vm_instance_t *instance);
 
 
-opcode_t *opcode_handler_bool(opcode_t *opcode, callstack_frame_t *frame);
+opcode_t *opcode_handler_bool(opcode_t *opcode, vm_instance_t *instance);
 
 
-opcode_t *opcode_handler_print(opcode_t *opcode, callstack_frame_t *frame);
+opcode_t *opcode_handler_print(opcode_t *opcode, vm_instance_t *instance);
 
 
-opcode_t *opcode_handler_cast(opcode_t *opcode, callstack_frame_t *frame);
+opcode_t *opcode_handler_cast(opcode_t *opcode, vm_instance_t *instance);
 
 
-opcode_t *opcode_handler_jump(opcode_t *opcode, callstack_frame_t *frame);
+opcode_t *opcode_handler_jump(opcode_t *opcode, vm_instance_t *instance);
 
 
-opcode_t *opcode_handler_jump_if_false(opcode_t *opcode, callstack_frame_t *frame);
+opcode_t *opcode_handler_jump_if_false(opcode_t *opcode, vm_instance_t *instance);
 
 
-opcode_t *opcode_handler_end(opcode_t *opcode, callstack_frame_t *frame);
+opcode_t *opcode_handler_define_const(opcode_t *opcode, vm_instance_t *instance);
+
+
+opcode_t *opcode_handler_load_const(opcode_t *opcode, vm_instance_t *instance);
+
+
+opcode_t *opcode_handler_end(opcode_t *opcode, vm_instance_t *instance);
 
 
 #endif /* OPCODE_HANDLERS_H_ */

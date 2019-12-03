@@ -2,9 +2,10 @@
 #define VM_API_H_
 
 
+#include "ulist_api.h"
 #include "data_types.h"
 #include "bytecode_api.h"
-#include "runtime_error_api.h"
+#include "runtime_common.h"
 
 
 /* Enumeration of status codes returned by virtual machine functions */
@@ -17,14 +18,6 @@ typedef enum
     VM_RUNTIME_ERROR,
     VM_ERROR
 } vm_status_e;
-
-
-/* Structure for data representing a VM instance */
-typedef struct
-{
-    runtime_error_e runtime_error;
-    callstack_t callstack;
-} vm_instance_t;
 
 
 /**

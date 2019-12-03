@@ -5,7 +5,6 @@
 #include "ulist_api.h"
 #include "opcode_handlers.h"
 #include "common.h"
-#include "runtime_common.h"
 
 
 /* Boilerplate for performing an arithmetic operation by popping two operands
@@ -45,7 +44,7 @@ static opcode_t *_arithmetic_op(opcode_t *opcode, callstack_frame_t *frame,
  *
  * 0000  opcode  (1 byte)
  */
-opcode_t *opcode_handler_nop(opcode_t *opcode, callstack_frame_t *frame)
+opcode_t *opcode_handler_nop(opcode_t *opcode, vm_instance_t *instance)
 {
     return opcode + 1;
 }
@@ -57,9 +56,9 @@ opcode_t *opcode_handler_nop(opcode_t *opcode, callstack_frame_t *frame)
  *
  * 0000  opcode  (1 byte)
  */
-opcode_t *opcode_handler_add(opcode_t *opcode, callstack_frame_t *frame)
+opcode_t *opcode_handler_add(opcode_t *opcode, vm_instance_t *instance)
 {
-    return _arithmetic_op(opcode, frame, ARITH_ADD);
+    return _arithmetic_op(opcode, instance->callstack.current_frame, ARITH_ADD);
 }
 
 
@@ -69,9 +68,9 @@ opcode_t *opcode_handler_add(opcode_t *opcode, callstack_frame_t *frame)
  *
  * 0000  opcode  (1 byte)
  */
-opcode_t *opcode_handler_sub(opcode_t *opcode, callstack_frame_t *frame)
+opcode_t *opcode_handler_sub(opcode_t *opcode, vm_instance_t *instance)
 {
-    return _arithmetic_op(opcode, frame, ARITH_SUB);
+    return _arithmetic_op(opcode, instance->callstack.current_frame, ARITH_SUB);
 }
 
 
@@ -81,9 +80,9 @@ opcode_t *opcode_handler_sub(opcode_t *opcode, callstack_frame_t *frame)
  *
  * 0000  opcode  (1 byte)
  */
-opcode_t *opcode_handler_mult(opcode_t *opcode, callstack_frame_t *frame)
+opcode_t *opcode_handler_mult(opcode_t *opcode, vm_instance_t *instance)
 {
-    return _arithmetic_op(opcode, frame, ARITH_MULT);
+    return _arithmetic_op(opcode, instance->callstack.current_frame, ARITH_MULT);
 }
 
 
@@ -93,9 +92,9 @@ opcode_t *opcode_handler_mult(opcode_t *opcode, callstack_frame_t *frame)
  *
  * 0000  opcode  (1 byte)
  */
-opcode_t *opcode_handler_div(opcode_t *opcode, callstack_frame_t *frame)
+opcode_t *opcode_handler_div(opcode_t *opcode, vm_instance_t *instance)
 {
-    return _arithmetic_op(opcode, frame, ARITH_DIV);
+    return _arithmetic_op(opcode, instance->callstack.current_frame, ARITH_DIV);
 }
 
 
@@ -105,9 +104,10 @@ opcode_t *opcode_handler_div(opcode_t *opcode, callstack_frame_t *frame)
  * 0000  opcode    (1 byte)
  * 0001  int value (4 bytes, signed integer)
  */
-opcode_t *opcode_handler_int(opcode_t *opcode, callstack_frame_t *frame)
+opcode_t *opcode_handler_int(opcode_t *opcode, vm_instance_t *instance)
 {
     data_stack_entry_t entry;
+    callstack_frame_t *frame = instance->callstack.current_frame;
 
     entry.payload.data_object.object.obj_type = OBJTYPE_DATA;
     entry.payload.data_object.data_type = DATATYPE_INT;
@@ -133,9 +133,10 @@ opcode_t *opcode_handler_int(opcode_t *opcode, callstack_frame_t *frame)
  * 0000  opcode      (1 byte)
  * 0001  float value (8 bytes, double-precision float)
  */
-opcode_t *opcode_handler_float(opcode_t *opcode, callstack_frame_t *frame)
+opcode_t *opcode_handler_float(opcode_t *opcode, vm_instance_t *instance)
 {
     data_stack_entry_t entry;
+    callstack_frame_t *frame = instance->callstack.current_frame;
 
     entry.payload.data_object.object.obj_type = OBJTYPE_DATA;
     entry.payload.data_object.data_type = DATATYPE_FLOAT;
@@ -161,15 +162,17 @@ opcode_t *opcode_handler_float(opcode_t *opcode, callstack_frame_t *frame)
  * 0001  size of string data in bytes (4 bytes, unsigned integer)
  * 0005  string data                  (no. of bytes specified by previous field)
  */
-opcode_t *opcode_handler_string(opcode_t *opcode, callstack_frame_t *frame)
+opcode_t *opcode_handler_string(opcode_t *opcode, vm_instance_t *instance)
 {
     data_stack_entry_t entry;
+    callstack_frame_t *frame = instance->callstack.current_frame;
 
     entry.payload.data_object.object.obj_type = OBJTYPE_DATA;
     entry.payload.data_object.data_type = DATATYPE_STRING;
 
     // Increment past the opcode
     opcode = (opcode_t *) INCREMENT_PTR_BYTES(opcode, 1);
+
 
     // Read size of the upcoming string data
     uint32_t string_size = *(uint32_t *) opcode;
@@ -207,9 +210,10 @@ opcode_t *opcode_handler_string(opcode_t *opcode, callstack_frame_t *frame)
  * 0000  opcode      (1 byte)
  * 0001  bool value  (1 byte, unsigned integer, 1=true 0=false)
  */
-opcode_t *opcode_handler_bool(opcode_t *opcode, callstack_frame_t *frame)
+opcode_t *opcode_handler_bool(opcode_t *opcode, vm_instance_t *instance)
 {
     data_stack_entry_t entry;
+    callstack_frame_t *frame = instance->callstack.current_frame;
 
     entry.payload.data_object.object.obj_type = OBJTYPE_DATA;
     entry.payload.data_object.data_type = DATATYPE_BOOL;
@@ -233,9 +237,10 @@ opcode_t *opcode_handler_bool(opcode_t *opcode, callstack_frame_t *frame)
  *
  * 0000  opcode      (1 byte)
  */
-opcode_t *opcode_handler_print(opcode_t *opcode, callstack_frame_t *frame)
+opcode_t *opcode_handler_print(opcode_t *opcode, vm_instance_t *instance)
 {
     data_stack_entry_t entry;
+    callstack_frame_t *frame = instance->callstack.current_frame;
 
     CHECK_ULIST_ERR_RT(ulist_pop_item(&frame->data, frame->data.num_items - 1, &entry));
 
@@ -263,8 +268,9 @@ opcode_t *opcode_handler_print(opcode_t *opcode, callstack_frame_t *frame)
  *     - when converting float to string, it is used to specify the number of digits
  *       after the decimal point that should be included in the output string.
  */
-opcode_t *opcode_handler_cast(opcode_t *opcode, callstack_frame_t *frame)
+opcode_t *opcode_handler_cast(opcode_t *opcode, vm_instance_t *instance)
 {
+    callstack_frame_t *frame = instance->callstack.current_frame;
     data_stack_entry_t input;
     data_stack_entry_t output;
     type_status_e err;
@@ -311,7 +317,7 @@ opcode_t *opcode_handler_cast(opcode_t *opcode, callstack_frame_t *frame)
  * 0000  opcode                                   (1 byte)
  * 0001  offset (in bytes) from current position  (4 bytes, signed integer)
  */
-opcode_t *opcode_handler_jump(opcode_t *opcode, callstack_frame_t *frame)
+opcode_t *opcode_handler_jump(opcode_t *opcode, vm_instance_t *instance)
 {
     int32_t offset = *((int32_t *) (((uint8_t *) opcode) + 1));
     return INCREMENT_PTR_BYTES(opcode, offset);
@@ -325,8 +331,9 @@ opcode_t *opcode_handler_jump(opcode_t *opcode, callstack_frame_t *frame)
  * 0000  opcode                                   (1 byte)
  * 0001  offset (in bytes) from current position  (4 bytes, signed integer)
  */
-opcode_t *opcode_handler_jump_if_false(opcode_t *opcode, callstack_frame_t *frame)
+opcode_t *opcode_handler_jump_if_false(opcode_t *opcode, vm_instance_t *instance)
 {
+    callstack_frame_t *frame = instance->callstack.current_frame;
     data_object_t bool_obj;
     data_stack_entry_t entry;
     type_status_e err;
@@ -366,12 +373,115 @@ opcode_t *opcode_handler_jump_if_false(opcode_t *opcode, callstack_frame_t *fram
 
 
 /**
+ * Appends a new value to the constant pool
+ *
+ * 0000  opcode          (1 byte)
+ * 0001  data type       (1 byte, unsigned integer, values defined in in data_type_e)
+ * 0002  immediate value (size depends on the value of data type field)
+ */
+opcode_t *opcode_handler_define_const(opcode_t *opcode, vm_instance_t *instance)
+{
+    data_object_t new_const;
+
+    // Increment past the opcode
+    opcode = INCREMENT_PTR_BYTES(opcode, 1);
+
+    new_const.object.obj_type = OBJTYPE_DATA;
+    new_const.data_type = *((data_type_e *) opcode);
+
+    // Increment past data type
+    opcode = INCREMENT_PTR_BYTES(opcode, 1);
+
+    switch (new_const.data_type)
+    {
+        case DATATYPE_INT:
+            new_const.payload.int_value = *((vm_int_t *) opcode);
+            opcode = INCREMENT_PTR_BYTES(opcode, sizeof(vm_int_t));
+            break;
+
+        case DATATYPE_FLOAT:
+            new_const.payload.float_value = *((vm_int_t *) opcode);
+            opcode = INCREMENT_PTR_BYTES(opcode, sizeof(vm_float_t));
+            break;
+
+        case DATATYPE_BOOL:
+            new_const.payload.bool_value = *((vm_bool_t *) opcode);
+            opcode = INCREMENT_PTR_BYTES(opcode, sizeof(vm_bool_t));
+            break;
+
+        case DATATYPE_STRING:
+        {
+            // Read size of the upcoming string data
+            uint32_t string_size = *(uint32_t *) opcode;
+
+            // Increment past the string size
+            opcode = (opcode_t *) INCREMENT_PTR_BYTES(opcode, sizeof(uint32_t));
+
+            // Set up new byte string object
+            byte_string_t *string = &new_const.payload.string_value;
+
+            CHECK_BYTESTR_ERR_RT(byte_string_create(string));
+
+            // +1 to leave space for trailing null byte
+            CHECK_BYTESTR_ERR_RT(byte_string_add_bytes(string, string_size + 1, NULL));
+
+            // Copy string data from bytecode
+            (void) memcpy(string->bytes, opcode, string_size);
+
+            // Add trailing null byte
+            string->bytes[string_size] = '\0';
+
+            // Increment past string data
+            opcode = INCREMENT_PTR_BYTES(opcode, string_size);
+        }
+            break;
+
+        default:
+            break;
+    }
+
+    // Append new const value to the constants pool
+    CHECK_ULIST_ERR_RT(ulist_append_item(&instance->constants, &new_const));
+
+    return opcode;
+}
+
+
+/**
+ * Loads a value from the constants pool and pushes it to the stack
+ *
+ * 0000  opcode   (1 byte)
+ * 0001  index    (4 bytes, unsigned integer, const pool index to load from)
+ */
+opcode_t *opcode_handler_load_const(opcode_t *opcode, vm_instance_t *instance)
+{
+    callstack_frame_t *frame = instance->callstack.current_frame;
+    data_stack_entry_t entry;
+    
+    // Increment past the opcode
+    opcode = INCREMENT_PTR_BYTES(opcode, 1);
+
+    uint32_t index = *((uint32_t *) opcode);
+
+    CHECK_ULIST_ERR_RT(ulist_get_item(&instance->constants,
+                                      (unsigned long long) index,
+                                      (void **) &entry.payload.data_object));
+
+    // Push loaded constant onto stack
+    CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &entry));
+
+    // Increment past the index
+    return INCREMENT_PTR_BYTES(opcode, sizeof(uint32_t));
+}
+
+
+/**
  * Currently, does nothing except act as sentintel to let the VM know that there
  * are no more instructions to execute
  *
  * 0000  opcode      (1 byte)
  */
-opcode_t *opcode_handler_end(opcode_t *opcode, callstack_frame_t *frame)
+opcode_t *opcode_handler_end(opcode_t *opcode, vm_instance_t *instance)
 {
     return opcode;
 }

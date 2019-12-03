@@ -2,6 +2,7 @@
 #define RUNTIME_COMMON_H_
 
 
+#include "data_types.h"
 #include "byte_string_api.h"
 #include "ulist_api.h"
 #include "runtime_error_api.h"
@@ -36,7 +37,7 @@
             return NULL;                                                      \
         }                                                                     \
     }                                                                         \
-    while(0);
+    while(0)
 
 
 #define CHECK_BYTESTR_ERR_RT(func)                                            \
@@ -73,6 +74,15 @@
         }                                                                                  \
     }                                                                                      \
     while (0)
+
+
+/* Structure for data representing a VM instance */
+typedef struct
+{
+    runtime_error_e runtime_error;
+    callstack_t callstack;
+    ulist_t constants;
+} vm_instance_t;
 
 
 #endif /* RUNTIME_COMMON_H_ */

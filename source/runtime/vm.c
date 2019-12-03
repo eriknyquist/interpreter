@@ -2,12 +2,14 @@
 #include <stdio.h>
 
 #include "vm_api.h"
+#include "bytecode_utils_api.h"
 #include "opcode_handlers.h"
 #include "common.h"
 
 
 #define CALLSTACK_ITEMS_PER_NODE (32)
 #define DATASTACK_ITEMS_PER_NODE (32)
+#define CONSTPOOL_ITEMS_PER_NODE (32)
 
 
 #define CHECK_ULIST_ERR(func) {                                               \
@@ -44,6 +46,8 @@ static op_handler_info_t _op_handlers[NUM_OPCODES] = {
     {.handler=opcode_handler_cast,          .bytes=sizeof(uint16_t)},   // OPCODE_CAST
     {.handler=opcode_handler_jump,          .bytes=sizeof(int32_t)},    // OPCODE_JUMP
     {.handler=opcode_handler_jump_if_false, .bytes=sizeof(int32_t)},    // OPCODE_JUMP_IF_FALSE
+    {.handler=opcode_handler_define_const,  .bytes=0u},                 // OPCODE_DEFINE_CONST
+    {.handler=opcode_handler_load_const,    .bytes=sizeof(uint32_t)},   // OPCODE_LOAD_CONST
     {.handler=opcode_handler_end,           .bytes=0u},                 // OPCODE_END
 };
 
@@ -83,6 +87,10 @@ vm_status_e vm_create(vm_instance_t *instance)
     CHECK_ULIST_ERR(ulist_create(&instance->callstack.frames,
                                  sizeof(callstack_frame_t),
                                  CALLSTACK_ITEMS_PER_NODE));
+
+    // Initialize constants pool
+    CHECK_ULIST_ERR(ulist_create(&instance->constants, sizeof(data_object_t),
+                                 CONSTPOOL_ITEMS_PER_NODE));
 
     return init_next_callstack_frame(&instance->callstack);
 }
@@ -140,16 +148,33 @@ vm_status_e vm_verify(opcode_t *bytecode, size_t max_bytes)
         opcode_e op = (opcode_e) bytes[i];
         size_t extra_bytes_to_increment;
 
-        if (OPCODE_STRING == op)
+        switch (op)
         {
             // Special case for string, variable bytecode length
-            uint32_t string_bytes = *((uint32_t *) (bytes + i + 1u));
-            extra_bytes_to_increment = sizeof(uint32_t) + string_bytes;
-        }
-        else
-        {
-            op_handler_info_t *handler_info = _op_handlers + op;
-            extra_bytes_to_increment = handler_info->bytes;
+            case OPCODE_STRING:
+            {
+                uint32_t string_bytes = *((uint32_t *) (bytes + i + 1u));
+                extra_bytes_to_increment = sizeof(uint32_t) + string_bytes;
+                break;
+            }
+            // Special case for defining consts, variable bytecode length
+            case OPCODE_DEFINE_CONST:
+            {
+                opcode_t *data_val = (opcode_t *) (bytes + i + 1u);
+
+                // 1 byte for the data type
+                extra_bytes_to_increment = 1u;
+
+                // Calculate size of remaining data
+                extra_bytes_to_increment += bytecode_utils_data_object_size_bytes(data_val);
+
+            }
+            default:
+            {
+                op_handler_info_t *handler_info = _op_handlers + op;
+                extra_bytes_to_increment = handler_info->bytes;
+                break;
+            }
         }
 
         i += extra_bytes_to_increment;
@@ -175,7 +200,7 @@ vm_status_e vm_execute(vm_instance_t *instance, opcode_t *bytecode)
         opcode_e op = (opcode_e) *bytecode;
         op_handler_info_t *handler_info = _op_handlers + op;
 
-        bytecode = handler_info->handler(bytecode, instance->callstack.current_frame);
+        bytecode = handler_info->handler(bytecode, instance);
         if (NULL == bytecode)
         {
             instance->runtime_error = runtime_error_get();
