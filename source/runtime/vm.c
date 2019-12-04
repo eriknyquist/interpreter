@@ -162,12 +162,9 @@ vm_status_e vm_verify(opcode_t *bytecode, size_t max_bytes)
             {
                 opcode_t *data_val = (opcode_t *) (bytes + i + 1u);
 
-                // 1 byte for the data type
-                extra_bytes_to_increment = 1u;
-
                 // Calculate size of remaining data
-                extra_bytes_to_increment += bytecode_utils_data_object_size_bytes(data_val);
-
+                extra_bytes_to_increment = bytecode_utils_data_object_size_bytes(data_val);
+                break;
             }
             default:
             {

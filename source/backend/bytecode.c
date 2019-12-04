@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include "bytecode_api.h"
+#include "bytecode_utils_api.h"
 #include "common.h"
 
 
@@ -342,6 +343,73 @@ bytecode_status_e bytecode_emit_div(bytecode_t *program)
 bytecode_status_e bytecode_emit_print(bytecode_t *program)
 {
     return _single_byte_op(program, OPCODE_PRINT);
+}
+
+
+bytecode_status_e bytecode_emit_define_const(bytecode_t *program,
+                                             data_type_e datatype, void *data)
+{
+    if (NULL == program)
+    {
+        return BYTECODE_INVALID_PARAM;
+    }
+
+
+    // 2 bytes for opcode and data type
+    REQUIRE_SPACE(program, 2);
+    program->bytecode[program->used_bytes] = OPCODE_DEFINE_CONST;
+    program->bytecode[program->used_bytes + 1] = datatype;
+    program->used_bytes += 2;
+
+    size_t data_bytes;
+
+    switch (datatype)
+    {
+        case DATATYPE_INT:
+            data_bytes = sizeof(vm_int_t);
+            break;
+
+        case DATATYPE_FLOAT:
+            data_bytes = sizeof(vm_float_t);
+            break;
+
+        case DATATYPE_BOOL:
+            data_bytes = sizeof(vm_bool_t);
+            break;
+
+        case DATATYPE_STRING:
+            REQUIRE_SPACE(program, sizeof(uint32_t));
+            data_bytes = strlen(data);
+            *((uint32_t *) (program->bytecode + program->used_bytes)) = (uint32_t) data_bytes;
+            program->used_bytes += sizeof(uint32_t);
+            break;
+        default:
+            return BYTECODE_ERROR;
+    }
+
+    memcpy(program->bytecode + program->used_bytes, data, data_bytes);
+    program->used_bytes += data_bytes;
+
+    return BYTECODE_OK;
+}
+
+
+bytecode_status_e bytecode_emit_load_const(bytecode_t *program, uint32_t index)
+{
+    if (NULL == program)
+    {
+        return BYTECODE_INVALID_PARAM;
+    }
+
+    size_t op_bytes = 1 + sizeof(uint32_t);
+    REQUIRE_SPACE(program, op_bytes);
+
+    program->bytecode[program->used_bytes] = (opcode_t) OPCODE_LOAD_CONST;
+    program->used_bytes += 1;
+
+    *((uint32_t *) (program->bytecode + program->used_bytes)) = index;
+    program->used_bytes += sizeof(uint32_t);
+    return BYTECODE_OK;
 }
 
 

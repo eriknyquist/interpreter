@@ -229,6 +229,30 @@ bytecode_status_e bytecode_emit_print(bytecode_t *program);
 
 
 /**
+ * Add DEFINE_CONST instruction to a bytecode chunk
+ *
+ * @param    program   Pointer to bytecode_t instance
+ * @param    datatype  Data type of data being passed
+ * @param    data      Pointer to data to encode
+ *
+ * @return   BYTECODE_OK if instruction was addedd successfuly
+ */
+bytecode_status_e bytecode_emit_define_const(bytecode_t *program,
+                                             data_type_e datatype, void *data);
+
+
+/**
+ * Add LOAD_CONST instruction to a bytecode chunk
+ *
+ * @param    program   Pointer to bytecode_t instance
+ * @param    index     Constant pool index to load
+ *
+ * @return   BYTECODE_OK if instruction was addedd successfuly
+ */
+bytecode_status_e bytecode_emit_load_const(bytecode_t *program, uint32_t index);
+
+
+/**
  * Add END instruction to a bytecode chunk
  *
  * @param    program   Pointer to bytecode_t instance

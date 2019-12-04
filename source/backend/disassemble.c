@@ -21,12 +21,59 @@ const char * _datatype_name(data_type_e data_type)
             return "STRING";
             break;
 
+        case DATATYPE_BOOL:
+            return "BOOL";
+            break;
+
         default:
             return "????";
             break;
     }
 
     return "????";
+}
+
+
+size_t _print_encoded_data(void *data)
+{
+    size_t bytes_consumed;
+    uint8_t *bytes = data;
+
+    data_type_e datatype = (data_type_e) *bytes;
+    bytes_consumed = 1u;
+    bytes += 1;
+
+    switch (datatype)
+    {
+        case DATATYPE_INT:
+            printf("%d", *((vm_int_t *) bytes));
+            bytes_consumed += sizeof(vm_int_t);
+            break;
+
+        case DATATYPE_FLOAT:
+            printf("%.2f", *((vm_float_t *) bytes));
+            bytes_consumed += sizeof(vm_float_t);
+            break;
+
+        case DATATYPE_BOOL:
+            printf("%s", (*((vm_bool_t *) bytes)) ? "True" : "False");
+            bytes_consumed += sizeof(vm_bool_t);
+            break;
+
+        case DATATYPE_STRING:
+        {
+            uint32_t string_size = *((uint32_t *) bytes);
+            bytes += sizeof(uint32_t);
+
+            printf("%.*s", string_size, bytes);
+            bytes_consumed += sizeof(uint32_t) + string_size;
+            break;
+        }
+        default:
+            return 0u;
+    }
+
+    return bytes_consumed;
 }
 
 
@@ -137,6 +184,28 @@ disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t num_instru
                 printf("JUMP_IF_FALSE %d", offset);
                 bytes_consumed += 1 + sizeof(int32_t);
                 break;
+
+            case OPCODE_LOAD_CONST:
+            {
+                ip += 1;
+                uint32_t index = *((uint32_t *) ip);
+                printf("LOAD_CONST %d", index);
+                bytes_consumed += 1 + sizeof(uint32_t);
+                break;
+            }
+            case OPCODE_DEFINE_CONST:
+            {
+                ip += 1;
+                printf("DEFINE_CONST ");
+                size_t consumed = _print_encoded_data(ip);
+                if (0u == consumed)
+                {
+                    return DISASSEMBLE_ERROR;
+                }
+
+                bytes_consumed += 1 + consumed;
+                break;
+            } 
 
             case OPCODE_END:
                 printf("END");

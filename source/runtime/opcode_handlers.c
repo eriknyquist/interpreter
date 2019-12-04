@@ -387,7 +387,7 @@ opcode_t *opcode_handler_define_const(opcode_t *opcode, vm_instance_t *instance)
     opcode = INCREMENT_PTR_BYTES(opcode, 1);
 
     new_const.object.obj_type = OBJTYPE_DATA;
-    new_const.data_type = *((data_type_e *) opcode);
+    new_const.data_type = (data_type_e) *((uint8_t *) opcode);
 
     // Increment past data type
     opcode = INCREMENT_PTR_BYTES(opcode, 1);
@@ -412,10 +412,10 @@ opcode_t *opcode_handler_define_const(opcode_t *opcode, vm_instance_t *instance)
         case DATATYPE_STRING:
         {
             // Read size of the upcoming string data
-            uint32_t string_size = *(uint32_t *) opcode;
+            uint32_t string_size = *((uint32_t *) opcode);
 
             // Increment past the string size
-            opcode = (opcode_t *) INCREMENT_PTR_BYTES(opcode, sizeof(uint32_t));
+            opcode = INCREMENT_PTR_BYTES(opcode, sizeof(uint32_t));
 
             // Set up new byte string object
             byte_string_t *string = &new_const.payload.string_value;
@@ -457,7 +457,7 @@ opcode_t *opcode_handler_load_const(opcode_t *opcode, vm_instance_t *instance)
 {
     callstack_frame_t *frame = instance->callstack.current_frame;
     data_stack_entry_t entry;
-    
+
     // Increment past the opcode
     opcode = INCREMENT_PTR_BYTES(opcode, 1);
 

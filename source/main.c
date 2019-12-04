@@ -17,17 +17,37 @@ int main(void)
         return bytecode_err;
     }
 
-    (void) bytecode_emit_int(&program, 3);
-    (void) bytecode_emit_float(&program, 2.0);
+    vm_int_t int1val = 3;
+    vm_float_t floatval = 3.0;
+    vm_int_t int2val = 2;
+    char *str1val = "Hello, ";
+    char *str2val = "world!";
+    vm_int_t int3val = 4;
+
+    (void) bytecode_emit_define_const(&program, DATATYPE_INT, &int1val);
+    (void) bytecode_emit_define_const(&program, DATATYPE_FLOAT, &floatval);
+    (void) bytecode_emit_define_const(&program, DATATYPE_INT, &int2val);
+    (void) bytecode_emit_define_const(&program, DATATYPE_STRING, str1val);
+    (void) bytecode_emit_define_const(&program, DATATYPE_STRING, str2val);
+    (void) bytecode_emit_define_const(&program, DATATYPE_INT, &int3val);
+    //(void) bytecode_emit_int(&program, 3);
+    //(void) bytecode_emit_float(&program, 2.0);
+    (void) bytecode_emit_load_const(&program, 0);
+    (void) bytecode_emit_load_const(&program, 1);
     (void) bytecode_emit_add(&program);
-    (void) bytecode_emit_int(&program, 2);
+    //(void) bytecode_emit_int(&program, 2);
+    (void) bytecode_emit_load_const(&program, 2);
     (void) bytecode_emit_div(&program);
     (void) bytecode_emit_cast(&program, DATATYPE_STRING, 10);
     (void) bytecode_emit_print(&program);
-    (void) bytecode_emit_string(&program, "Hello, ");
-    (void) bytecode_emit_string(&program, "world!");
+    //(void) bytecode_emit_string(&program, "Hello, ");
+    //(void) bytecode_emit_string(&program, "world!");
+    (void) bytecode_emit_load_const(&program, 3);
+    (void) bytecode_emit_load_const(&program, 4);
     (void) bytecode_emit_add(&program);
-    (void) bytecode_emit_int(&program, 4);
+    //(void) bytecode_emit_int(&program, 4);
+    //(void) bytecode_emit_string(&program, "world!");
+    (void) bytecode_emit_load_const(&program, 5);
     (void) bytecode_emit_mult(&program);
     (void) bytecode_emit_print(&program);
     (void) bytecode_emit_end(&program);
