@@ -400,7 +400,7 @@ opcode_t *opcode_handler_define_const(opcode_t *opcode, vm_instance_t *instance)
             break;
 
         case DATATYPE_FLOAT:
-            new_const.payload.float_value = *((vm_int_t *) opcode);
+            new_const.payload.float_value = *((vm_float_t *) opcode);
             opcode = INCREMENT_PTR_BYTES(opcode, sizeof(vm_float_t));
             break;
 
@@ -433,8 +433,8 @@ opcode_t *opcode_handler_define_const(opcode_t *opcode, vm_instance_t *instance)
 
             // Increment past string data
             opcode = INCREMENT_PTR_BYTES(opcode, string_size);
-        }
             break;
+        }
 
         default:
             break;
