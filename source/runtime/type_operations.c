@@ -869,5 +869,6 @@ type_status_e type_cast_to(object_t *object, object_t *output, data_type_e type,
         return TYPE_INVALID_CAST;
     }
 
+    output->obj_type = OBJTYPE_DATA;
     return cast_func(object, output, data);
 }

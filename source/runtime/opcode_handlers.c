@@ -462,6 +462,7 @@ opcode_t *opcode_handler_load_const(opcode_t *opcode, vm_instance_t *instance)
     opcode = INCREMENT_PTR_BYTES(opcode, 1);
 
     uint32_t index = *((uint32_t *) opcode);
+    entry.payload.object.obj_type = OBJTYPE_DATA;
 
     CHECK_ULIST_ERR_RT(ulist_get_item(&instance->constants,
                                       (unsigned long long) index,

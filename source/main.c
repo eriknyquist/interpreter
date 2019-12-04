@@ -17,9 +17,9 @@ int main(void)
         return bytecode_err;
     }
 
-    vm_int_t int1val = 3;
-    vm_float_t floatval = 3.0;
-    vm_int_t int2val = 2;
+    vm_int_t int1val = 2;
+    vm_float_t floatval = 16.0;
+    vm_int_t int2val = 4;
     char *str1val = "Hello, ";
     char *str2val = "world!";
     vm_int_t int3val = 4;
