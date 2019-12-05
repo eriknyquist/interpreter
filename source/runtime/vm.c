@@ -5,6 +5,7 @@
 #include "bytecode_utils_api.h"
 #include "opcode_handlers.h"
 #include "common.h"
+#include "disassemble_api.h"
 
 
 #define CALLSTACK_ITEMS_PER_NODE (32)
@@ -199,6 +200,9 @@ vm_status_e vm_execute(vm_instance_t *instance, bytecode_t *program)
     {
         opcode_e op = (opcode_e) *program->ip;
         op_handler_info_t *handler_info = _op_handlers + op;
+
+        (void) disassemble_bytecode(program,
+                                    (size_t) (program->ip - program->bytecode), 1u);
 
         opcode_t *next_instruction = handler_info->handler(program->ip, instance);
 

@@ -19,11 +19,13 @@ typedef enum
  * Disassemble bytecode and print it in a human-readable format
  *
  * @param   program           Pointer to the bytecode_t stucture to disassemble
+ * @param   offset_bytes      Starting offset in bytes
  * @param   num_instructions  Number of instructions to disassemble (0 for all)
  *
  * @return  DISASSEMBLE_OK if bytecode was disassembled successfully
  */
-disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t num_instructions);
+disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t offset_bytes,
+                                          size_t num_instructions);
 
 
 #endif /* DISASSEMBLE_API_H_ */

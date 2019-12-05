@@ -30,23 +30,16 @@ int main(void)
     (void) bytecode_emit_define_const(&program, DATATYPE_STRING, str1val);
     (void) bytecode_emit_define_const(&program, DATATYPE_STRING, str2val);
     (void) bytecode_emit_define_const(&program, DATATYPE_INT, &int3val);
-    //(void) bytecode_emit_int(&program, 3);
-    //(void) bytecode_emit_float(&program, 2.0);
     (void) bytecode_emit_load_const(&program, 0);
     (void) bytecode_emit_load_const(&program, 1);
     (void) bytecode_emit_add(&program);
-    //(void) bytecode_emit_int(&program, 2);
     (void) bytecode_emit_load_const(&program, 2);
     (void) bytecode_emit_div(&program);
     (void) bytecode_emit_cast(&program, DATATYPE_STRING, 10);
     (void) bytecode_emit_print(&program);
-    //(void) bytecode_emit_string(&program, "Hello, ");
-    //(void) bytecode_emit_string(&program, "world!");
     (void) bytecode_emit_load_const(&program, 3);
     (void) bytecode_emit_load_const(&program, 4);
     (void) bytecode_emit_add(&program);
-    //(void) bytecode_emit_int(&program, 4);
-    //(void) bytecode_emit_string(&program, "world!");
     (void) bytecode_emit_load_const(&program, 5);
     (void) bytecode_emit_mult(&program);
     (void) bytecode_emit_print(&program);
@@ -58,7 +51,7 @@ int main(void)
     printf("\n\n");
 
     printf("--------- disassembly --------\n\n");
-    disassemble_bytecode(&program, 0);
+    disassemble_bytecode(&program, 0, 0);
     printf("\n\n");
 
     vm_status_e vm_err;

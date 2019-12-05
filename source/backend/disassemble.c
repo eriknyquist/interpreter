@@ -77,7 +77,11 @@ size_t _print_encoded_data(void *data)
 }
 
 
-disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t num_instructions)
+/**
+ * @see disassemble_api.h
+ */
+disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t offset_bytes,
+                                          size_t num_instructions)
 {
     if (NULL == program)
     {
@@ -86,7 +90,7 @@ disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t num_instru
 
     uint8_t *ip;
     int32_t offset;
-    size_t bytes_consumed = 0;
+    size_t bytes_consumed = offset_bytes;
     size_t instructions_consumed = 0;
 
     while (bytes_consumed < program->used_bytes)
