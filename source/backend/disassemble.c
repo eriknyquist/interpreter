@@ -34,7 +34,7 @@ const char * _datatype_name(data_type_e data_type)
 }
 
 
-size_t _print_encoded_data(void *data)
+size_t _print_encoded_data(void *data, int *chars_printed)
 {
     size_t bytes_consumed;
     uint8_t *bytes = data;
@@ -46,17 +46,17 @@ size_t _print_encoded_data(void *data)
     switch (datatype)
     {
         case DATATYPE_INT:
-            printf("%d", *((vm_int_t *) bytes));
+            *chars_printed += printf("%d", *((vm_int_t *) bytes));
             bytes_consumed += sizeof(vm_int_t);
             break;
 
         case DATATYPE_FLOAT:
-            printf("%.2f", *((vm_float_t *) bytes));
+            *chars_printed += printf("%.2f", *((vm_float_t *) bytes));
             bytes_consumed += sizeof(vm_float_t);
             break;
 
         case DATATYPE_BOOL:
-            printf("%s", (*((vm_bool_t *) bytes)) ? "True" : "False");
+            *chars_printed += printf("%s", (*((vm_bool_t *) bytes)) ? "True" : "False");
             bytes_consumed += sizeof(vm_bool_t);
             break;
 
@@ -65,7 +65,7 @@ size_t _print_encoded_data(void *data)
             uint32_t string_size = *((uint32_t *) bytes);
             bytes += sizeof(uint32_t);
 
-            printf("%.*s", string_size, bytes);
+            *chars_printed += printf("%.*s", string_size, bytes);
             bytes_consumed += sizeof(uint32_t) + string_size;
             break;
         }
@@ -95,48 +95,56 @@ disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t offset_byt
 
     while (bytes_consumed < program->used_bytes)
     {
+
         if (num_instructions && (instructions_consumed >= num_instructions))
         {
             break;
         }
 
+        int chars_printed = 0u;
+        uint32_t bytes_before = bytes_consumed;
         ip = program->bytecode + bytes_consumed;
-        printf("%08lx ", bytes_consumed);
+        chars_printed += printf("%08lx ", bytes_consumed);
 
         switch ((opcode_e)  *ip)
         {
             case OPCODE_NOP:
-                printf("NOP");
+                chars_printed += printf("NOP");
                 bytes_consumed += 1;
                 break;
 
             case OPCODE_ADD:
-                printf("ADD");
+                chars_printed += printf("ADD");
                 bytes_consumed += 1;
                 break;
 
             case OPCODE_SUB:
-                printf("SUB");
+                chars_printed += printf("SUB");
                 bytes_consumed += 1;
                 break;
 
             case OPCODE_MULT:
-                printf("MULT");
+                chars_printed += printf("MULT");
                 bytes_consumed += 1;
                 break;
 
             case OPCODE_DIV:
-                printf("DIV");
+                chars_printed += printf("DIV");
                 bytes_consumed += 1;
                 break;
 
             case OPCODE_INT:
-                printf("INT %d", *((vm_int_t *) (ip + 1)));
+                chars_printed += printf("INT %d", *((vm_int_t *) (ip + 1)));
                 bytes_consumed += sizeof(vm_int_t) + 1;
                 break;
 
+            case OPCODE_BOOL:
+                chars_printed += printf("BOOL %s", *((vm_bool_t *) (ip + 1)) ? "True" : "False");
+                bytes_consumed += sizeof(vm_bool_t) + 1;
+                break;
+
             case OPCODE_FLOAT:
-                printf("FLOAT %.4f", *((vm_float_t *) (ip + 1)));
+                chars_printed += printf("FLOAT %.4f", *((vm_float_t *) (ip + 1)));
                 bytes_consumed += sizeof(vm_float_t) + 1;
                 break;
 
@@ -146,17 +154,17 @@ disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t offset_byt
                 uint32_t string_size = *((uint32_t *) ip);
                 ip += sizeof(uint32_t);
 
-                printf("STRING ");
+                chars_printed += printf("STRING ");
                 for (uint32_t i = 0; i < string_size; i++)
                 {
-                    printf("%c", ip[i]);
+                    chars_printed += printf("%c", ip[i]);
                 }
 
                 bytes_consumed += 1 + sizeof(uint32_t) + string_size;
                 break;
 
             case OPCODE_PRINT:
-                printf("PRINT");
+                chars_printed += printf("PRINT");
                 bytes_consumed += 1;
                 break;
 
@@ -168,7 +176,7 @@ disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t offset_byt
 
                 uint16_t extra_data = *((uint16_t *) ip);
 
-                printf("CAST %s %d", _datatype_name((data_type_e) datatype_u8),
+                chars_printed += printf("CAST %s %d", _datatype_name((data_type_e) datatype_u8),
                                      extra_data);
                 bytes_consumed += 1 + sizeof(uint8_t) + sizeof(uint16_t);
                 break;
@@ -177,7 +185,7 @@ disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t offset_byt
                 ip += 1;
 
                 offset = *((uint32_t *) ip);
-                printf("JUMP %d", offset);
+                chars_printed += printf("JUMP %x", offset);
                 bytes_consumed += 1 + sizeof(int32_t);
                 break;
 
@@ -185,7 +193,7 @@ disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t offset_byt
                 ip += 1;
 
                 offset = *((uint32_t *) ip);
-                printf("JUMP_IF_FALSE %d", offset);
+                chars_printed += printf("JUMP_IF_FALSE %x", offset);
                 bytes_consumed += 1 + sizeof(int32_t);
                 break;
 
@@ -193,15 +201,15 @@ disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t offset_byt
             {
                 ip += 1;
                 uint32_t index = *((uint32_t *) ip);
-                printf("LOAD_CONST %d", index);
+                chars_printed += printf("LOAD_CONST %d", index);
                 bytes_consumed += 1 + sizeof(uint32_t);
                 break;
             }
             case OPCODE_DEFINE_CONST:
             {
                 ip += 1;
-                printf("DEFINE_CONST ");
-                size_t consumed = _print_encoded_data(ip);
+                chars_printed += printf("DEFINE_CONST ");
+                size_t consumed = _print_encoded_data(ip, &chars_printed);
                 if (0u == consumed)
                 {
                     return DISASSEMBLE_ERROR;
@@ -212,17 +220,26 @@ disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t offset_byt
             } 
 
             case OPCODE_END:
-                printf("END");
+                chars_printed += printf("END");
                 bytes_consumed += 1;
                 break;
 
             default:
-                printf("????");
+                chars_printed += printf("????");
                 bytes_consumed += 1;
                 break;
         }
 
-        printf("\n");
+        printf("%*s", 50 - chars_printed, "(");
+        for (uint32_t i = bytes_before; i < bytes_consumed; i++)
+        {
+            printf("%02x", *(program->bytecode + i));
+            if (i < (bytes_consumed - 1))
+            {
+                printf(" ");
+            }
+        }
+        chars_printed += printf(")\n");
         instructions_consumed += 1;
     }
 
