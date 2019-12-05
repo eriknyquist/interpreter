@@ -858,7 +858,7 @@ type_status_e type_cast_to(object_t *object, object_t *output, data_type_e type,
 
     if (data_obj->data_type == type)
     {
-        return TYPE_OK;
+        return TYPE_NO_CAST_REQUIRED;
     }
 
     type_operations_t *ops = &_type_ops[data_obj->data_type];
