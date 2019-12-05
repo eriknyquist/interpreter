@@ -209,7 +209,7 @@ bytecode_status_e bytecode_emit_jump(bytecode_t *program, int32_t offset)
         return BYTECODE_INVALID_PARAM;
     }
 
-    size_t op_bytes = 1 + sizeof(uint8_t) + sizeof(int32_t);
+    size_t op_bytes = 1 + sizeof(int32_t);
     REQUIRE_SPACE(program, op_bytes);
 
     opcode_t *ip = program->bytecode + program->used_bytes;
@@ -231,7 +231,7 @@ bytecode_status_e bytecode_emit_jump_if_false(bytecode_t *program, int32_t offse
         return BYTECODE_INVALID_PARAM;
     }
 
-    size_t op_bytes = 1 + sizeof(uint8_t) + sizeof(int32_t);
+    size_t op_bytes = 1 + sizeof(int32_t);
     REQUIRE_SPACE(program, op_bytes);
 
     opcode_t *ip = program->bytecode + program->used_bytes;

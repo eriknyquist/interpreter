@@ -334,21 +334,29 @@ opcode_t *opcode_handler_jump(opcode_t *opcode, vm_instance_t *instance)
 opcode_t *opcode_handler_jump_if_false(opcode_t *opcode, vm_instance_t *instance)
 {
     callstack_frame_t *frame = instance->callstack.current_frame;
-    data_object_t bool_obj;
+    data_object_t bool_data, *bool_data_ptr;
     data_stack_entry_t entry;
     type_status_e err;
 
     CHECK_ULIST_ERR_RT(ulist_pop_item(&frame->data, frame->data.num_items - 1, &entry));
 
     // Cast popped item to bool
-    err = type_cast_to(&entry.payload.object, &bool_obj.object,
+    err = type_cast_to(&entry.payload.object, &bool_data.object,
                        DATATYPE_BOOL, 0u);
 
-    if (TYPE_OK != err)
+    if (TYPE_NO_CAST_REQUIRED == err)
+    {
+        bool_data_ptr = &entry.payload.data_object;
+    }
+    else if (TYPE_OK == err)
+    {
+        bool_data_ptr = &bool_data;
+    }
+    else
     {
         if (TYPE_RUNTIME_ERROR != err)
         {
-            RUNTIME_ERR(RUNTIME_ERROR_CAST, "Failed to cast, status %d", err);
+            RUNTIME_ERR(RUNTIME_ERROR_CAST, "Failed to cast, status %d\n", err);
         }
 
         return NULL;
@@ -356,7 +364,7 @@ opcode_t *opcode_handler_jump_if_false(opcode_t *opcode, vm_instance_t *instance
 
     opcode_t *ret;
 
-    if (bool_obj.payload.bool_value)
+    if (bool_data_ptr->payload.bool_value)
     {
         // Increment past the opcode and offset data
         ret = INCREMENT_PTR_BYTES(opcode, 1 + sizeof(int32_t));

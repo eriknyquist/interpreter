@@ -24,6 +24,8 @@ int main(void)
     char *str2val = "world!";
     vm_int_t int3val = 4;
 
+    uint32_t backpatch_location;
+
     (void) bytecode_emit_define_const(&program, DATATYPE_INT, &int1val);
     (void) bytecode_emit_define_const(&program, DATATYPE_FLOAT, &floatval);
     (void) bytecode_emit_define_const(&program, DATATYPE_INT, &int2val);
@@ -40,8 +42,14 @@ int main(void)
     (void) bytecode_emit_load_const(&program, 3);
     (void) bytecode_emit_load_const(&program, 4);
     (void) bytecode_emit_add(&program);
+
+    (void) bytecode_emit_bool(&program, 1);
+    (void) bytecode_emit_backpatched_jump_if_false(&program, &backpatch_location);
     (void) bytecode_emit_load_const(&program, 5);
     (void) bytecode_emit_mult(&program);
+    (void) bytecode_backpatch_jump(&program, backpatch_location,
+                                   program.used_bytes - backpatch_location);
+
     (void) bytecode_emit_print(&program);
     (void) bytecode_emit_end(&program);
 
