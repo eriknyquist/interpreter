@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <time.h>
+#include <sys/time.h>
 
 #include "hashtable_api.h"
 
@@ -10,8 +11,8 @@
 #define CHAR_UPPER_BOUND (0x7e) // End of printable ASCII chars
 
 
-#define MIN_STRING_SIZE (8)
-#define MAX_STRING_SIZE (32)
+#define MIN_STRING_SIZE (32)
+#define MAX_STRING_SIZE (64)
 
 #define NUM_ENTRIES_TO_TEST (10000)
 
@@ -20,6 +21,31 @@
 
 
 #define RANDRANGE(low, high)  ((low) + (rand() % ((high) - (low))))
+
+
+#define TIME_HASHTABLE_OP(highvar, lowvar, op, errval)                        \
+        uint64_t __start = _timestamp_ms();                                   \
+        errval = op;                                                          \
+        uint64_t __time = _timestamp_ms() - __start;                          \
+                                                                              \
+        if ((lowvar == UINT64_MAX) || (__time < lowvar))                      \
+        {                                                                     \
+            lowvar = __time;                                                  \
+        }                                                                     \
+                                                                              \
+        if ((highvar == UINT64_MAX) || (__time > highvar))                    \
+        {                                                                     \
+            highvar = __time;                                                 \
+        }                                                                     \
+
+#define TIME_HASHTABLE_PUT(op, errval) TIME_HASHTABLE_OP(highest_put_ms, lowest_put_ms, op, errval)
+#define TIME_HASHTABLE_GET(op, errval) TIME_HASHTABLE_OP(highest_get_ms, lowest_get_ms, op, errval)
+
+
+static uint64_t lowest_get_ms = UINT64_MAX;
+static uint64_t highest_get_ms = UINT64_MAX;
+static uint64_t lowest_put_ms = UINT64_MAX;
+static uint64_t highest_put_ms = UINT64_MAX;
 
 
 typedef struct
@@ -31,6 +57,14 @@ typedef struct
 
 
 static test_data_t test_hashtable_entries[NUM_ENTRIES_TO_TEST];
+
+
+static uint64_t _timestamp_ms(void)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+}
 
 
 static void _populate_test_data(test_data_t *entry)
@@ -57,7 +91,7 @@ static int _verify_hashtable_state(hashtable_t *hashtable)
         int *data;
         test_data_t *entry = test_hashtable_entries + i;
 
-        err = hashtable_get(hashtable, entry->key, (void **) &data);
+        TIME_HASHTABLE_GET(hashtable_get(hashtable, entry->key, (void **) &data), err);
         if (entry->deleted)
         {
             // Expecting get operation to fail, item is deleted
@@ -118,7 +152,9 @@ static int _run_test(void)
     for (int i = 0; i < NUM_ENTRIES_TO_TEST; i++)
     {
         test_data_t *entry = test_hashtable_entries + i;
-        err = hashtable_put(&hashtable, entry->key, (void **) &entry->data, NULL);
+
+        TIME_HASHTABLE_PUT(hashtable_put(&hashtable, entry->key, (void **) &entry->data, NULL), err);
+
         if (HASHTABLE_OK != err)
         {
             printf("hashtable_put failed, status %d\n", err);
@@ -176,4 +212,8 @@ int main(int argc, char *argv[])
 {
     srand((unsigned) time(NULL));
     printf("\n%s\n", _run_test() ? "Failure occurred" : "OK");
+    printf("lowest put time: %lums\n", lowest_put_ms);
+    printf("highest put time: %lums\n", highest_put_ms);
+    printf("lowest get time: %lums\n", lowest_get_ms);
+    printf("highest get time: %lums\n", highest_get_ms);
 }
