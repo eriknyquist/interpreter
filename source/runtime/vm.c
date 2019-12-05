@@ -133,12 +133,12 @@ vm_status_e vm_destroy(vm_instance_t *instance)
 }
 
 
-vm_status_e vm_verify(opcode_t *bytecode, size_t max_bytes)
+vm_status_e vm_verify(bytecode_t *program)
 {
-    uint8_t *bytes = (uint8_t *) bytecode;
+    uint8_t *bytes = (uint8_t *) program->bytecode;
     uint32_t i;
 
-    for (i = 0; i < max_bytes; i++)
+    for (i = 0; i < program->used_bytes; i++)
     {
         if (NUM_OPCODES <= bytes[i])
         {
@@ -190,19 +190,25 @@ vm_status_e vm_verify(opcode_t *bytecode, size_t max_bytes)
 /**
  * @see vm_api.h
  */
-vm_status_e vm_execute(vm_instance_t *instance, opcode_t *bytecode)
+vm_status_e vm_execute(vm_instance_t *instance, bytecode_t *program)
 {
-    while (OPCODE_END != (opcode_e) *bytecode)
+    // Reset instruction pointer to beginning of bytecode stream
+    program->ip = program->bytecode;
+
+    while (OPCODE_END != (opcode_e) *program->ip)
     {
-        opcode_e op = (opcode_e) *bytecode;
+        opcode_e op = (opcode_e) *program->ip;
         op_handler_info_t *handler_info = _op_handlers + op;
 
-        bytecode = handler_info->handler(bytecode, instance);
-        if (NULL == bytecode)
+        opcode_t *next_instruction = handler_info->handler(program->ip, instance);
+
+        if (NULL == next_instruction)
         {
             instance->runtime_error = runtime_error_get();
             return VM_RUNTIME_ERROR;
         }
+
+        program->ip = next_instruction;
     }
 
     return VM_OK;

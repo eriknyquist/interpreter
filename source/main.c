@@ -64,7 +64,7 @@ int main(void)
     vm_status_e vm_err;
     vm_instance_t ins;
 
-    if ((vm_err = vm_verify(program.bytecode, program.used_bytes)) != VM_OK)
+    if ((vm_err = vm_verify(&program)) != VM_OK)
     {
         printf("vm_verify failed, status %d\n", vm_err);
         return vm_err;
@@ -77,7 +77,8 @@ int main(void)
     }
 
     printf("------- execution output ------\n\n");
-    if ((vm_err = vm_execute(&ins, program.bytecode)) != VM_OK)
+    if ((vm_err = vm_execute(&ins, &program)) != VM_OK)
+
     {
         printf("vm_execute failed, status %d\n", vm_err);
         return vm_err;

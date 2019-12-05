@@ -9,9 +9,10 @@ typedef uint8_t opcode_t;
 /* Structure representing a dynamically-sized chunk of bytecode */
 typedef struct
 {
-    opcode_t *bytecode;
-    size_t total_bytes;
-    size_t used_bytes;
+    opcode_t *bytecode;    // Pointer to start of bytecode
+    opcode_t *ip;          // Pointer to next instruction to be executed
+    size_t total_bytes;    // Total bytes allocated for bytecode
+    size_t used_bytes;     // Allocated bytes in use
 } bytecode_t;
 
 

@@ -36,11 +36,11 @@ vm_status_e vm_create(vm_instance_t *instance);
  * before executing a chunk of bytecode; avoids requiring vm_execute to check
  * each opcode before executing.
  *
- * @param    bytecode    Pointer to bytecode
+ * @param    program    Pointer to bytecode object to verify
  *
  * @return   VM_OK if bytecode was verified successfully, VM_INVALID_OPCODE otherwise
  */
-vm_status_e vm_verify(opcode_t *bytecode, size_t max_bytes);
+vm_status_e vm_verify(bytecode_t *program);
 
 
 /**
@@ -55,14 +55,14 @@ vm_status_e vm_destroy(vm_instance_t *instance);
 
 
 /**
- * Executes a chunk of bytecode
+ * Executes a chunk of bytecode. Assumes the bytecode has already been verified.
  *
  * @param    instance    Pointer to VM instance to destroy
- * @param    bytecode    Pointer to bytecode
+ * @param    program     Pointer to bytecode object to execute
  *
  * @return   VM_OK if execution completed successfully
  */
-vm_status_e vm_execute(vm_instance_t *instance, opcode_t *bytecode);
+vm_status_e vm_execute(vm_instance_t *instance, bytecode_t *program);
 
 
 #endif /* VM_API_H_ */
