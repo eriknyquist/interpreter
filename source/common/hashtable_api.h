@@ -72,7 +72,7 @@ hashtable_status_e hashtable_destroy(hashtable_t *table);
  * @return       HASHTABLE_OK if successful, #hastable_status_e otherwise
  */
 hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data,
-                                 uint32_t *hash_output);
+                                 uint64_t *hash_output);
 
 
 /**

@@ -14,7 +14,7 @@
 #define MIN_STRING_SIZE (32)
 #define MAX_STRING_SIZE (64)
 
-#define NUM_ENTRIES_TO_TEST (10000)
+#define NUM_ENTRIES_TO_TEST (100000)
 
 #define MIN_ENTRIES_TO_DELETE (NUM_ENTRIES_TO_TEST / 100)
 #define MAX_ENTRIES_TO_DELETE (NUM_ENTRIES_TO_TEST / 10)
@@ -51,6 +51,7 @@ static uint64_t highest_put_ms = UINT64_MAX;
 typedef struct
 {
     char key[MAX_STRING_SIZE + 1];
+    uint64_t hash;
     int data;
     uint8_t deleted;
 } test_data_t;
@@ -64,6 +65,24 @@ static uint64_t _timestamp_ms(void)
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+}
+
+
+static int _check_for_dupe_hashes(test_data_t *check_entry, uint64_t stop_index)
+{
+    // Put all the entries into the hashtable
+    for (uint64_t i = 0; i < stop_index; i++)
+    {
+        test_data_t *entry = test_hashtable_entries + i;
+
+        if (entry->hash == check_entry->hash)
+        {
+            printf("Error: strings have same hash ('%s' and '%s')", entry->key, check_entry->key);
+            return 1;
+        }
+    }
+
+    return 0;
 }
 
 
@@ -153,11 +172,16 @@ static int _run_test(void)
     {
         test_data_t *entry = test_hashtable_entries + i;
 
-        TIME_HASHTABLE_PUT(hashtable_put(&hashtable, entry->key, (void **) &entry->data, NULL), err);
+        TIME_HASHTABLE_PUT(hashtable_put(&hashtable, entry->key, (void **) &entry->data, &entry->hash), err);
 
         if (HASHTABLE_OK != err)
         {
             printf("hashtable_put failed, status %d\n", err);
+            return 1;
+        }
+
+        if (_check_for_dupe_hashes(entry, i))
+        {
             return 1;
         }
     }

@@ -44,7 +44,7 @@ typedef enum
  */
 typedef struct
 {
-    uint32_t hash;   // Hash of the string key for this item
+    uint64_t hash;   // Hash of the string key for this item
     uint8_t status;  // Entry status; must be one of hashtable_entry_status_e
     char data[];     // Pointer to data block; allocated by ulist.c
 } hashtable_entry_t;
@@ -60,9 +60,9 @@ static void _init_new_table(hashtable_t *table)
 }
 
 
-static hashtable_entry_t *_find_empty_slot(hashtable_t *table, uint32_t hash)
+static hashtable_entry_t *_find_empty_slot(hashtable_t *table, uint64_t hash)
 {
-    uint32_t index = hash % table->size;
+    uint64_t index = hash % table->size;
 
     // Get the first entry to try
     hashtable_entry_t *entry = INDEX_TABLE(table, index);
@@ -79,9 +79,9 @@ static hashtable_entry_t *_find_empty_slot(hashtable_t *table, uint32_t hash)
 }
 
 
-static hashtable_entry_t *_find_used_slot(hashtable_t *table, uint32_t hash)
+static hashtable_entry_t *_find_used_slot(hashtable_t *table, uint64_t hash)
 {
-    uint32_t index = hash % table->size;
+    uint64_t index = hash % table->size;
 
     // Get the first entry to try
     hashtable_entry_t *entry = INDEX_TABLE(table, index);
@@ -191,7 +191,7 @@ hashtable_status_e hashtable_destroy(hashtable_t *table)
  * @see hashtable_api.h
  */
 hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data,
-                                 uint32_t *hash_output)
+                                 uint64_t *hash_output)
 {
     if ((NULL == table) || (NULL == key) || (NULL == data))
     {
@@ -212,7 +212,7 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data,
     }
 
     // Calculate hash and find corresponding entry
-    uint32_t hash = fnv_1a_hash(key, strlen(key));
+    uint64_t hash = fnv_1a_64_hash(key, strlen(key));
     hashtable_entry_t *entry = _find_empty_slot(table, hash);
 
     if (NULL != hash_output)
@@ -241,7 +241,7 @@ hashtable_status_e hashtable_get(hashtable_t *table, char *key, void **data_ptr)
         return HASHTABLE_INVALID_PARAM;
     }
 
-    uint32_t hash = fnv_1a_hash(key, strlen(key));
+    uint64_t hash = fnv_1a_64_hash(key, strlen(key));
 
     hashtable_entry_t *entry = _find_used_slot(table, hash);
     if (NULL == entry)
@@ -264,7 +264,7 @@ hashtable_status_e hashtable_delete(hashtable_t *table, char *key)
         return HASHTABLE_INVALID_PARAM;
     }
 
-    uint32_t hash = fnv_1a_hash(key, strlen(key));
+    uint64_t hash = fnv_1a_64_hash(key, strlen(key));
 
     hashtable_entry_t *entry = _find_used_slot(table, hash);
     if (NULL == entry)
