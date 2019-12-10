@@ -1,7 +1,6 @@
 /*
- * FNV-1a hash implementation, stolen from:
- * http://www.isthe.com/chongo/src/fnv/hash_32a.c
- * http://www.isthe.com/chongo/src/fnv/hash_64a.c
+ * FNV-1a hash implementation, stolen from
+ * http://www.isthe.com/chongo/tech/comp/fnv/index.html#FNV-reference-source
  */
 
 
@@ -21,6 +20,9 @@
 #define FNV_64A_INIT ((uint64_t) 0xcbf29ce484222325u)
 
 
+/**
+ * @see fnv_1a_api.h
+ */
 uint32_t fnv_1a_32_hash(void *data, size_t size)
 {
     uint8_t * u8_data = data;
@@ -36,20 +38,19 @@ uint32_t fnv_1a_32_hash(void *data, size_t size)
 }
 
 
+/**
+ * @see fnv_1a_api.h
+ */
 uint64_t fnv_1a_64_hash(void *data, size_t size)
 {
     uint8_t *u8_data = data;
 	uint64_t hval = FNV_64A_INIT;
 
-    /*
-     * FNV-1 hash each octet of the buffer
-     */
     for (int i = 0; i < size; i++)
     {
 		hval ^= u8_data[i];
 		hval *= FNV_64A_PRIME;
     }
 
-    /* return our new hash value */
     return hval;
 }
