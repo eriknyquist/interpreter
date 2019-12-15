@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include <time.h>
 #include <sys/time.h>
 
@@ -19,6 +20,9 @@
 #define MIN_ENTRIES_TO_DELETE (NUM_ENTRIES_TO_TEST / 100)
 #define MAX_ENTRIES_TO_DELETE (NUM_ENTRIES_TO_TEST / 10)
 
+
+// size of a single entry in bytes, entry struct is not in public hashtable API
+#define ENTRY_SIZE (81)
 
 #define RANDRANGE(low, high)  ((low) + (rand() % ((high) - (low))))
 
@@ -48,10 +52,11 @@ static uint64_t lowest_put_ms = UINT64_MAX;
 static uint64_t highest_put_ms = UINT64_MAX;
 
 
+static int putcount, getcount, deletecount;
+
 typedef struct
 {
     char key[MAX_STRING_SIZE + 1];
-    uint64_t hash;
     int data;
     uint8_t deleted;
 } test_data_t;
@@ -60,24 +65,15 @@ typedef struct
 static test_data_t test_hashtable_entries[NUM_ENTRIES_TO_TEST];
 
 
-static uint64_t _timestamp_ms(void)
+static uint8_t _string_exists(char *string, int entries_to_check)
 {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
-}
-
-
-static int _check_for_dupe_hashes(test_data_t *check_entry, uint64_t stop_index)
-{
-    // Put all the entries into the hashtable
-    for (uint64_t i = 0; i < stop_index; i++)
+    for (int i = 0; i < entries_to_check; i++)
     {
         test_data_t *entry = test_hashtable_entries + i;
 
-        if (entry->hash == check_entry->hash)
+        if (strncmp(string, entry->key, MAX_STRING_SIZE) == 0)
         {
-            printf("Error: strings have same hash ('%s' and '%s')", entry->key, check_entry->key);
+            // String already exists
             return 1;
         }
     }
@@ -85,19 +81,34 @@ static int _check_for_dupe_hashes(test_data_t *check_entry, uint64_t stop_index)
     return 0;
 }
 
-
-static void _populate_test_data(test_data_t *entry)
+static uint32_t _timestamp_ms(void)
 {
-    int size = RANDRANGE(MIN_STRING_SIZE, MAX_STRING_SIZE);
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+}
 
-    for (int i = 0; i < size; i++)
+
+static void _populate_test_data_entry(int count)
+{
+    test_data_t *entry = test_hashtable_entries + count;
+
+    do
     {
-        char c = RANDRANGE(CHAR_LOWER_BOUND, CHAR_UPPER_BOUND);
-        entry->key[i] = c;
-    }
+        int size = RANDRANGE(MIN_STRING_SIZE, MAX_STRING_SIZE);
 
-    entry->key[size] = '\0';
+        for (int i = 0; i < size; i++)
+        {
+            char c = RANDRANGE(CHAR_LOWER_BOUND, CHAR_UPPER_BOUND);
+            entry->key[i] = c;
+        }
+
+        entry->key[size] = '\0';
+    }
+    while (_string_exists(entry->key, count));
+
     entry->data = rand();
+    entry->deleted = 0u;
 }
 
 static int _verify_hashtable_state(hashtable_t *hashtable)
@@ -110,6 +121,7 @@ static int _verify_hashtable_state(hashtable_t *hashtable)
         int *data;
         test_data_t *entry = test_hashtable_entries + i;
 
+        getcount++;
         TIME_HASHTABLE_GET(hashtable_get(hashtable, entry->key, (void **) &data), err);
         if (entry->deleted)
         {
@@ -139,26 +151,37 @@ static int _verify_hashtable_state(hashtable_t *hashtable)
                    entry->data, entry->key, *data);
             return 1;
         }
-
-        printf("Successfully verified %s : %d\n", entry->key, entry->data);
     }
 
     return 0;
 }
 
 
+static void _generate_test_data(void)
+{
+    int last_printed = 0;
+
+    // Populate all test entries with random unique string keys
+    for (int i = 0; i < NUM_ENTRIES_TO_TEST; i++)
+    {
+        _populate_test_data_entry(i);
+
+        int percent = (int) (((float) i) / ((float) NUM_ENTRIES_TO_TEST / 100.0f));
+        if ((percent != last_printed) && !(percent % 10))
+        {
+            last_printed = percent;
+            printf("%d%%...\n", percent);
+        }
+    }
+}
+
 static int _run_test(void)
 {
     hashtable_t hashtable;
     hashtable_status_e err;
 
-    // Populate all test entries with new random data, set up expected hashtable state
-    for (int i = 0; i < NUM_ENTRIES_TO_TEST; i++)
-    {
-        test_data_t *entry = test_hashtable_entries + i;
-        _populate_test_data(entry);
-        entry->deleted = 0u;
-    }
+    printf("\nGenerating test data...\n\n");
+    _generate_test_data();
 
     err = hashtable_create(&hashtable, sizeof(int));
     if (HASHTABLE_OK != err)
@@ -167,21 +190,18 @@ static int _run_test(void)
         return 1;
     }
 
+    printf("\nRunning test...\n");
     // Put all the entries into the hashtable
     for (int i = 0; i < NUM_ENTRIES_TO_TEST; i++)
     {
         test_data_t *entry = test_hashtable_entries + i;
 
-        TIME_HASHTABLE_PUT(hashtable_put(&hashtable, entry->key, (void **) &entry->data, &entry->hash), err);
-
+        putcount++;
+        TIME_HASHTABLE_PUT(hashtable_put(&hashtable, entry->key, (void **) &entry->data, NULL), err);
+ 
         if (HASHTABLE_OK != err)
         {
             printf("hashtable_put failed, status %d\n", err);
-            return 1;
-        }
-
-        if (_check_for_dupe_hashes(entry, i))
-        {
             return 1;
         }
     }
@@ -205,6 +225,7 @@ static int _run_test(void)
             continue;
         }
 
+        deletecount++;
         err = hashtable_delete(&hashtable, entry->key);
         if (HASHTABLE_OK != err)
         {
@@ -235,9 +256,13 @@ static int _run_test(void)
 int main(int argc, char *argv[])
 {
     srand((unsigned) time(NULL));
-    printf("\n%s\n", _run_test() ? "Failure occurred" : "OK");
+    printf("\n%s\n", _run_test() ? "Failure occurred" : "All OK");
+
+    printf("\n%d gets, %d puts, %d deletes, %d bytes total\n\n", getcount, putcount,
+           deletecount, ENTRY_SIZE * NUM_ENTRIES_TO_TEST);
+
     printf("lowest put time: %lums\n", lowest_put_ms);
     printf("highest put time: %lums\n", highest_put_ms);
     printf("lowest get time: %lums\n", lowest_get_ms);
-    printf("highest get time: %lums\n", highest_get_ms);
+    printf("highest get time: %lums\n\n", highest_get_ms);
 }
