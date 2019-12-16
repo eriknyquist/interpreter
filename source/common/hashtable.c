@@ -77,7 +77,8 @@ static void _init_new_table(hashtable_t *table)
 }
 
 
-static hashtable_entry_t *_find_empty_slot(hashtable_t *table, uint32_t hash)
+static hashtable_entry_t *_find_empty_slot(hashtable_t *table, char *key,
+                                           uint32_t hash)
 {
     uint32_t index = hash % table->size;
 
@@ -86,6 +87,11 @@ static hashtable_entry_t *_find_empty_slot(hashtable_t *table, uint32_t hash)
 
     while (ENTRY_STATUS_USED == (hashtable_entry_status_e) entry->status)
     {
+        if (table->strcmp_func(key, entry->key))
+        {
+            return NULL;
+        }
+
         /* Keep going around (linear probing) until we find an unused
          * or deleted entry. */
         index = (index + 1u) % table->size;
@@ -158,7 +164,14 @@ static hashtable_status_e _resize_table(hashtable_t *table, size_t new_size)
             continue;
         }
 
-        hashtable_entry_t *new_entry = _find_empty_slot(table, old_entry->hash);
+        hashtable_entry_t *new_entry = _find_empty_slot(table, old_entry->key,
+                                                        old_entry->hash);
+        if (NULL == new_entry)
+        {
+            // Shouldn't be any duplicate keys in old table
+            return HASHTABLE_ERROR;
+        }
+
         (void) memcpy(new_entry, old_entry, ENTRY_SIZE_BYTES(table));
         table->used += 1u;
     }
@@ -258,7 +271,11 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data,
 
     // Calculate hash and find corresponding entry
     uint32_t hash = table->hash_func(key, strlen(key));
-    hashtable_entry_t *entry = _find_empty_slot(table, hash);
+    hashtable_entry_t *entry = _find_empty_slot(table, key, hash);
+    if (NULL == entry)
+    {
+        return HASHTABLE_KEY_ALREADY_EXISTS;
+    }
 
     if (NULL != hash_output)
     {

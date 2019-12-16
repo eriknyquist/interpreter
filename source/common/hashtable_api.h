@@ -16,7 +16,7 @@ typedef enum
     HASHTABLE_OK,
     HASHTABLE_NO_ITEM,             // No item matching the provided key
     HASHTABLE_KEY_TOO_LONG,        // Max. key length of 256 bytes exceeded
-    HASHTABLE_HASH_ALREADY_EXISTS, // Item with the provided key already exists
+    HASHTABLE_KEY_ALREADY_EXISTS,  // Item with the provided key already exists
     HASHTABLE_INVALID_PARAM,       // Invalid parameter passed to function
     HASHTABLE_MEMORY_ERROR,        // Memory allocation failed
     HASHTABLE_ERROR                // Unspecified internal error
