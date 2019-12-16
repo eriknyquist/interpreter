@@ -63,6 +63,9 @@ static byte_string_status_e _resize_byte_string(byte_string_t *string, size_t ne
 }
 
 
+/**
+ * @see byte_string_api.h
+ */
 byte_string_status_e byte_string_create(byte_string_t *string)
 {
     if (NULL == string)
@@ -76,6 +79,9 @@ byte_string_status_e byte_string_create(byte_string_t *string)
 }
 
 
+/**
+ * @see byte_string_api.h
+ */
 byte_string_status_e byte_string_add_bytes(byte_string_t *string,
                                            size_t num_bytes, uint8_t *bytes)
 {
@@ -97,6 +103,9 @@ byte_string_status_e byte_string_add_bytes(byte_string_t *string,
 }
 
 
+/**
+ * @see byte_string_api.h
+ */
 byte_string_status_e byte_string_snprintf(byte_string_t *string, size_t size,
                                           const char *format, ...)
 {
@@ -122,6 +131,9 @@ byte_string_status_e byte_string_snprintf(byte_string_t *string, size_t size,
 }
 
 
+/**
+ * @see byte_string_api.h
+ */
 byte_string_status_e byte_string_destroy(byte_string_t *string)
 {
     if (NULL == string)
