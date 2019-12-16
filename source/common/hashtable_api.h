@@ -22,11 +22,13 @@ typedef enum
     HASHTABLE_ERROR                // Unspecified internal error
 } hashtable_status_e;
 
+
 /* Hashtable hash function signature */
 typedef uint32_t (*hashtable_hash_func_t)(void *, size_t);
 
 /* Hashtable string comparison function signature */
 typedef uint8_t (*hashtable_strcmp_func_t)(char *, char *);
+
 
 /**
  * Structure representing configurable parameters for a hashtable
@@ -48,6 +50,7 @@ typedef struct
     hashtable_strcmp_func_t strcmp_func;
 } hashtable_config_t;
 
+
 /**
  * Structure representing a hashtable
  */
@@ -58,7 +61,7 @@ typedef struct
     hashtable_strcmp_func_t strcmp_func; // String comparison function
     size_t size;                         // Total number of slots in the table
     size_t used;                         // Number of slots used in the table
-    void *table;
+    void *table;                         // Pointer to table data
 } hashtable_t;
 
 
@@ -90,13 +93,10 @@ hashtable_status_e hashtable_destroy(hashtable_t *table);
  * @param table  Pointer to hashtable instance
  * @param key    Pointer to NULL-terminated string key used to access the entry.
  * @param data   Pointer to data for hashtable entry.
- * @param hash   Optional pointer to write calculated hash to. If not NULL, the
- *               hash calculated for key is written here.
  *
  * @return       HASHTABLE_OK if successful, #hastable_status_e otherwise
  */
-hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data,
-                                 uint32_t *hash_output);
+hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data);
 
 
 /**

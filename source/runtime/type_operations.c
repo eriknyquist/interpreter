@@ -169,7 +169,7 @@ static type_status_e _multiply_string(vm_int_t int_value, byte_string_t *string_
     // Build new string by making multiple copies of the source string
     for (vm_int_t i = 0; i < int_value; i++)
     {
-        uint8_t *target = result_string->bytes + (i * (string_value->used_bytes - 1));
+        char *target = result_string->bytes + (i * (string_value->used_bytes - 1));
         (void) memcpy(target, string_value->bytes, string_value->used_bytes - 1);
     }
 

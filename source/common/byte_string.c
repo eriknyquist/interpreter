@@ -26,7 +26,7 @@
 
 static byte_string_status_e _resize_byte_string(byte_string_t *string, size_t new_size)
 {
-    uint8_t *temp;
+    char *temp;
 
     size_t alloc_size;
 
@@ -83,7 +83,7 @@ byte_string_status_e byte_string_create(byte_string_t *string)
  * @see byte_string_api.h
  */
 byte_string_status_e byte_string_add_bytes(byte_string_t *string,
-                                           size_t num_bytes, uint8_t *bytes)
+                                           size_t num_bytes, char *bytes)
 {
     if ((NULL == string) || (0 == num_bytes))
     {

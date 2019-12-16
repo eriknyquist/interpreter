@@ -41,6 +41,7 @@ typedef enum
 } hashtable_entry_status_e;
 
 
+
 /**
  * Structure representing a single entry in the hashtable
  */
@@ -49,7 +50,7 @@ typedef struct
     char key[MAX_STRING_SIZE];  // String key
     uint32_t hash;              // Hash of string key
     uint8_t status;             // Entry status; must be one of hashtable_entry_status_e
-    char data[];                // Pointer to data block; allocated by ulist.c
+    char data[];                // Pointer to data section
 } hashtable_entry_t;
 
 
@@ -113,6 +114,7 @@ static hashtable_entry_t *_find_used_slot(hashtable_t *table, char *key, uint32_
     {
         // Don't check hash on deleted entries
         if (ENTRY_STATUS_USED == (hashtable_entry_status_e) entry->status)
+
         {
             if (table->strcmp_func(key, entry->key))
             {
@@ -248,8 +250,7 @@ hashtable_status_e hashtable_destroy(hashtable_t *table)
 /**
  * @see hashtable_api.h
  */
-hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data,
-                                 uint32_t *hash_output)
+hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data)
 {
     if ((NULL == table) || (NULL == key) || (NULL == data))
     {
@@ -277,11 +278,6 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data,
         return HASHTABLE_KEY_ALREADY_EXISTS;
     }
 
-    if (NULL != hash_output)
-    {
-        *hash_output = hash;
-    }
-
     // Populate entry
     (void) memcpy(entry->data, data, table->data_size_bytes);
 
@@ -306,7 +302,7 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data,
  */
 hashtable_status_e hashtable_get(hashtable_t *table, char *key, void **data_ptr)
 {
-    if ((NULL == table) || (NULL == key) || (NULL == data_ptr))
+    if ((NULL == table) || (NULL == key))
     {
         return HASHTABLE_INVALID_PARAM;
     }
@@ -319,7 +315,11 @@ hashtable_status_e hashtable_get(hashtable_t *table, char *key, void **data_ptr)
         return HASHTABLE_NO_ITEM;
     }
 
-    *data_ptr = entry->data;
+    if (NULL != data_ptr)
+    {
+        *data_ptr = entry->data;
+    }
+
     return HASHTABLE_OK;
 }
 

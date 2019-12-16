@@ -24,7 +24,7 @@ typedef struct
 {
     size_t total_bytes;
     size_t used_bytes;
-    uint8_t *bytes;
+    char *bytes;
 } byte_string_t;
 
 
@@ -59,7 +59,7 @@ byte_string_status_e byte_string_destroy(byte_string_t *string);
  * @return   BYTE_STRING_OK if bytes were added successfully
  */
 byte_string_status_e byte_string_add_bytes(byte_string_t *string,
-                                           size_t num_bytes, uint8_t *bytes);
+                                           size_t num_bytes, char *bytes);
 
 
 /**

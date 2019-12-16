@@ -184,7 +184,7 @@ static int _run_test(void)
         test_data_t *entry = test_hashtable_entries + i;
 
         putcount++;
-        TIME_HASHTABLE_PUT(hashtable_put(&hashtable, entry->key, (void **) &entry->data, NULL), err);
+        TIME_HASHTABLE_PUT(hashtable_put(&hashtable, entry->key, (void **) &entry->data), err);
  
         if (HASHTABLE_OK != err)
         {
