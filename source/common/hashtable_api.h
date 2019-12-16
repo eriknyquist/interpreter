@@ -22,31 +22,55 @@ typedef enum
     HASHTABLE_ERROR                // Unspecified internal error
 } hashtable_status_e;
 
+/* Hashtable hash function signature */
+typedef uint32_t (*hashtable_hash_func_t)(void *, size_t);
+
+/* Hashtable string comparison function signature */
+typedef uint8_t (*hashtable_strcmp_func_t)(char *, char *);
+
+/**
+ * Structure representing configurable parameters for a hashtable
+ */
+typedef struct
+{
+    /* Size in bytes of a single hashtable entry. The data pointer passed to
+     * hashtable_put and hashtable_get are expected to point to objects of
+     * this size. */
+    size_t data_size_bytes;
+
+    /* Function for producing a 32-bit hash of a byte string. If NULL,
+     * fnv_1a_32_hash will be used. */
+    hashtable_hash_func_t hash_func;
+
+    /* Function for comparing two NULL-terminated string keys. Should return 1
+     * if strings match, and 0 if they do not match. If NULL, the equivalent of
+     * the standard strcmp function will be used. */
+    hashtable_strcmp_func_t strcmp_func;
+} hashtable_config_t;
 
 /**
  * Structure representing a hashtable
  */
 typedef struct
 {
+    size_t data_size_bytes;              // Data size of a single table entry
+    hashtable_hash_func_t hash_func;     // Hash generation function
+    hashtable_strcmp_func_t strcmp_func; // String comparison function
+    size_t size;                         // Total number of slots in the table
+    size_t used;                         // Number of slots used in the table
     void *table;
-    size_t data_size_bytes;         // Data size of a single table entry
-    size_t size;                    // Total number of slots in the table
-    size_t used;                    // Number of slots used in the table
-    uint32_t collisions;            // Collision counter (reset for each 'put')
 } hashtable_t;
 
 
 /**
  * Initialize a hashtable instance.
  *
- * @param table            Pointer to hashtable instance
- * @param item_size_bytes  Size of a single entry in the hashtable. The pointer
- *                         passed to hastable_put is expected to point to data
- *                         of this size.
+ * @param table       Pointer to hashtable instance
+ * @param cfg         Pointer to a hashtable_config_t structure
  *
- * @return                 HASHTABLE_OK if successful, #hastable_status_e otherwise
+ * @return            HASHTABLE_OK if successful, #hastable_status_e otherwise
  */
-hashtable_status_e hashtable_create(hashtable_t *table, size_t item_size_bytes);
+hashtable_status_e hashtable_create(hashtable_t *table, hashtable_config_t *cfg);
 
 
 /**

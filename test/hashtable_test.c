@@ -15,7 +15,7 @@
 #define MIN_STRING_SIZE (32)
 #define MAX_STRING_SIZE (64)
 
-#define NUM_ENTRIES_TO_TEST (100000)
+#define NUM_ENTRIES_TO_TEST (1000000)
 
 #define MIN_ENTRIES_TO_DELETE (NUM_ENTRIES_TO_TEST / 100)
 #define MAX_ENTRIES_TO_DELETE (NUM_ENTRIES_TO_TEST / 10)
@@ -65,22 +65,6 @@ typedef struct
 static test_data_t test_hashtable_entries[NUM_ENTRIES_TO_TEST];
 
 
-static uint8_t _string_exists(char *string, int entries_to_check)
-{
-    for (int i = 0; i < entries_to_check; i++)
-    {
-        test_data_t *entry = test_hashtable_entries + i;
-
-        if (strncmp(string, entry->key, MAX_STRING_SIZE) == 0)
-        {
-            // String already exists
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
 static uint32_t _timestamp_ms(void)
 {
     struct timeval tv;
@@ -93,19 +77,15 @@ static void _populate_test_data_entry(int count)
 {
     test_data_t *entry = test_hashtable_entries + count;
 
-    do
+    int size = RANDRANGE(MIN_STRING_SIZE, MAX_STRING_SIZE);
+
+    for (int i = 0; i < size; i++)
     {
-        int size = RANDRANGE(MIN_STRING_SIZE, MAX_STRING_SIZE);
-
-        for (int i = 0; i < size; i++)
-        {
-            char c = RANDRANGE(CHAR_LOWER_BOUND, CHAR_UPPER_BOUND);
-            entry->key[i] = c;
-        }
-
-        entry->key[size] = '\0';
+        char c = RANDRANGE(CHAR_LOWER_BOUND, CHAR_UPPER_BOUND);
+        entry->key[i] = c;
     }
-    while (_string_exists(entry->key, count));
+
+    entry->key[size] = '\0';
 
     entry->data = rand();
     entry->deleted = 0u;
@@ -173,17 +153,24 @@ static void _generate_test_data(void)
             printf("%d%%...\n", percent);
         }
     }
+
+    printf("100%%!\n");
 }
 
 static int _run_test(void)
 {
     hashtable_t hashtable;
+    hashtable_config_t cfg;
     hashtable_status_e err;
 
     printf("\nGenerating test data...\n\n");
     _generate_test_data();
 
-    err = hashtable_create(&hashtable, sizeof(int));
+    cfg.data_size_bytes = sizeof(int);
+    cfg.hash_func = NULL;
+    cfg.strcmp_func = NULL;
+
+    err = hashtable_create(&hashtable, &cfg);
     if (HASHTABLE_OK != err)
     {
         printf("hashtable_create failed, status %d\n", err);

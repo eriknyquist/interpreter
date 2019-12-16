@@ -53,6 +53,20 @@ typedef struct
 } hashtable_entry_t;
 
 
+static uint8_t _default_strcmp_func(char * str1, char * str2)
+{
+    for (int i = 0; str1[i]; i++)
+    {
+        if (str1[i] != str2[i])
+        {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+
 static void _init_new_table(hashtable_t *table)
 {
     for (size_t i = 0; i < table->size; i++)
@@ -94,16 +108,7 @@ static hashtable_entry_t *_find_used_slot(hashtable_t *table, char *key, uint32_
         // Don't check hash on deleted entries
         if (ENTRY_STATUS_USED == (hashtable_entry_status_e) entry->status)
         {
-            int i;
-            for (i = 0; key[i]; i++)
-            {
-                if (key[i] != entry->key[i])
-                {
-                    break;
-                }
-            }
-
-            if (key[i] == entry->key[i])
+            if (table->strcmp_func(key, entry->key))
             {
                 // Keys match
                 return entry;
@@ -166,11 +171,38 @@ static hashtable_status_e _resize_table(hashtable_t *table, size_t new_size)
 /**
  * @see hashtable_api.h
  */
-hashtable_status_e hashtable_create(hashtable_t *table, size_t data_size_bytes)
+hashtable_status_e hashtable_create(hashtable_t *table, hashtable_config_t *cfg)
 {
-    memset(table, 0, sizeof(hashtable_t));
-    table->data_size_bytes = data_size_bytes;
+    if ((NULL == table) || (NULL == cfg) || (0u == cfg->data_size_bytes))
+    {
+        return HASHTABLE_INVALID_PARAM;
+    }
 
+    // Initialize table structure
+    memset(table, 0, sizeof(hashtable_t));
+    table->data_size_bytes = cfg->data_size_bytes;
+
+    // Populate hash function
+    if (NULL == cfg->hash_func)
+    {
+        table->hash_func = fnv_1a_32_hash;
+    }
+    else
+    {
+        table->hash_func = cfg->hash_func;
+    }
+
+    // Populate string comparison function
+    if (NULL == cfg->strcmp_func)
+    {
+        table->strcmp_func = _default_strcmp_func;
+    }
+    else
+    {
+        table->strcmp_func = cfg->strcmp_func;
+    }
+
+    // Allocate some initial space
     table->table = malloc(ENTRY_SIZE_BYTES(table) * INITIAL_TABLE_SIZE);
     if (NULL == table->table)
     {
@@ -179,6 +211,7 @@ hashtable_status_e hashtable_create(hashtable_t *table, size_t data_size_bytes)
 
     _init_new_table(table);
     table->size = INITIAL_TABLE_SIZE;
+
     return HASHTABLE_OK;
 }
 
@@ -224,7 +257,7 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data,
     }
 
     // Calculate hash and find corresponding entry
-    uint32_t hash = fnv_1a_32_hash(key, strlen(key));
+    uint32_t hash = table->hash_func(key, strlen(key));
     hashtable_entry_t *entry = _find_empty_slot(table, hash);
 
     if (NULL != hash_output)
@@ -261,7 +294,7 @@ hashtable_status_e hashtable_get(hashtable_t *table, char *key, void **data_ptr)
         return HASHTABLE_INVALID_PARAM;
     }
 
-    uint32_t hash = fnv_1a_32_hash(key, strlen(key));
+    uint32_t hash = table->hash_func(key, strlen(key));
 
     hashtable_entry_t *entry = _find_used_slot(table, key, hash);
     if (NULL == entry)
@@ -284,7 +317,7 @@ hashtable_status_e hashtable_delete(hashtable_t *table, char *key)
         return HASHTABLE_INVALID_PARAM;
     }
 
-    uint32_t hash = fnv_1a_32_hash(key, strlen(key));
+    uint32_t hash = table->hash_func(key, strlen(key));
 
     hashtable_entry_t *entry = _find_used_slot(table, key, hash);
     if (NULL == entry)
