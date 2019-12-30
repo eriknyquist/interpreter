@@ -104,7 +104,7 @@ disassemble_status_e disassemble_bytecode(bytecode_t *program, size_t offset_byt
         int chars_printed = 0u;
         uint32_t bytes_before = bytes_consumed;
         ip = program->bytecode + bytes_consumed;
-        chars_printed += printf("%08lx ", bytes_consumed);
+        chars_printed += printf("%08zx ", bytes_consumed);
 
         switch ((opcode_e)  *ip)
         {

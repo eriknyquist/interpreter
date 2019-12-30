@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <time.h>
-#include <sys/time.h>
+#include <inttypes.h>
 
 #include "hashtable_api.h"
 
@@ -67,9 +67,10 @@ static test_data_t test_hashtable_entries[NUM_ENTRIES_TO_TEST];
 
 static uint32_t _timestamp_ms(void)
 {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+    struct timespec tv;
+
+    timespec_get(&tv, TIME_UTC);
+    return (tv.tv_sec * 1000) + (tv.tv_nsec / 1000000);
 }
 
 
@@ -248,8 +249,8 @@ int main(int argc, char *argv[])
     printf("\n%d gets, %d puts, %d deletes, %d bytes total\n\n", getcount, putcount,
            deletecount, ENTRY_SIZE * NUM_ENTRIES_TO_TEST);
 
-    printf("lowest put time: %lums\n", lowest_put_ms);
-    printf("highest put time: %lums\n", highest_put_ms);
-    printf("lowest get time: %lums\n", lowest_get_ms);
-    printf("highest get time: %lums\n\n", highest_get_ms);
+    printf("lowest put time: %" PRIu64 "ms\n", lowest_put_ms);
+    printf("highest put time: %" PRIu64 "ms\n", highest_put_ms);
+    printf("lowest get time: %" PRIu64 "ms\n", lowest_get_ms);
+    printf("highest get time: %" PRIu64 "ms\n\n", highest_get_ms);
 }
