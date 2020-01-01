@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdint.h>
 
+#include "memory_manager_api.h"
 #include "bytecode_api.h"
 #include "bytecode_utils_api.h"
 #include "common.h"
@@ -21,7 +22,8 @@
         if ((prog->total_bytes - prog->used_bytes) < (free_bytes_needed))     \
         {                                                                     \
             prog->total_bytes *= 2;                                           \
-            prog->bytecode = realloc(prog->bytecode, prog->total_bytes);      \
+            prog->bytecode = memory_manager_realloc(prog->bytecode,           \
+                                                    prog->total_bytes);       \
             if (NULL == prog->bytecode)                                       \
             {                                                                 \
                 return BYTECODE_MEMORY_ERROR;                                 \
@@ -37,7 +39,7 @@ bytecode_status_e bytecode_create(bytecode_t *program)
         return BYTECODE_INVALID_PARAM;
     }
 
-    if ((program->bytecode = malloc(INITIAL_SIZE)) == NULL)
+    if ((program->bytecode = memory_manager_alloc(INITIAL_SIZE)) == NULL)
     {
         return BYTECODE_MEMORY_ERROR;
     }
@@ -57,7 +59,7 @@ bytecode_status_e bytecode_destroy(bytecode_t *program)
 
     program->total_bytes = 0;
     program->used_bytes = 0;
-    free(program->bytecode);
+    memory_manager_free(program->bytecode);
 
     return BYTECODE_OK;
 }

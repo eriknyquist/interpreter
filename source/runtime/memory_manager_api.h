@@ -47,7 +47,7 @@ typedef enum
  *
  * @return    MEMORY_MANAGER_OK if memory manager was successfully initialized
  */
-memory_manager_status_e memory_manager_init_heap(void);
+memory_manager_status_e memory_manager_init(void);
 
 
 /**

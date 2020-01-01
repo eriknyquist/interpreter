@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "memory_manager_api.h"
 #include "hashtable_api.h"
 #include "fnv_1a_api.h"
 
@@ -141,7 +142,7 @@ static hashtable_status_e _resize_table(hashtable_t *table, size_t new_size)
     void *old_table = table->table;
     size_t old_size = table->size;
 
-    table->table = malloc(ENTRY_SIZE_BYTES(table) * new_size);
+    table->table = memory_manager_alloc(ENTRY_SIZE_BYTES(table) * new_size);
     if (NULL == table->table)
     {
         return HASHTABLE_MEMORY_ERROR;
@@ -178,7 +179,7 @@ static hashtable_status_e _resize_table(hashtable_t *table, size_t new_size)
         table->used += 1u;
     }
 
-    free(old_table);
+    memory_manager_free(old_table);
     return HASHTABLE_OK;
 }
 
@@ -241,7 +242,7 @@ hashtable_status_e hashtable_destroy(hashtable_t *table)
         return HASHTABLE_OK;
     }
 
-    free(table->table);
+    memory_manager_free(table->table);
     memset(table, 0, sizeof(hashtable_t));
     return HASHTABLE_OK;
 }

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "memory_manager_api.h"
 #include "byte_string_api.h"
 
 
@@ -36,7 +37,7 @@ static byte_string_status_e _resize_byte_string(byte_string_t *string, size_t ne
     if (NULL == string->bytes)
     {
         // First bytes being added after creation-- need to allocate space
-        if ((temp = malloc(alloc_size)) == NULL)
+        if ((temp = memory_manager_alloc(alloc_size)) == NULL)
         {
             return BYTE_STRING_MEMORY_ERROR;
         }
@@ -44,8 +45,7 @@ static byte_string_status_e _resize_byte_string(byte_string_t *string, size_t ne
     else
     {
         // Space is already allocated, need to realloc
-
-        if ((temp = realloc(string->bytes, alloc_size)) == NULL)
+        if ((temp = memory_manager_realloc(string->bytes, alloc_size)) == NULL)
         {
             return BYTE_STRING_MEMORY_ERROR;
         }
@@ -143,7 +143,7 @@ byte_string_status_e byte_string_destroy(byte_string_t *string)
 
     if (NULL != string->bytes)
     {
-        free(string->bytes);
+        memory_manager_free(string->bytes);
     }
 
     memset(string, 0, sizeof(byte_string_t));

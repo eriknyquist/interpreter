@@ -5,6 +5,7 @@
 #include <time.h>
 #include <inttypes.h>
 
+#include "memory_manager_api.h"
 #include "hashtable_api.h"
 
 
@@ -243,6 +244,13 @@ static int _run_test(void)
 
 int main(int argc, char *argv[])
 {
+    memory_manager_status_e mem_err = memory_manager_init();
+    if (MEMORY_MANAGER_OK != mem_err)
+    {
+        printf("Failed to initialize memory manager, status %d\n", mem_err);
+        return mem_err;
+    }
+
     srand((unsigned) time(NULL));
     printf("\n%s\n", _run_test() ? "Failure occurred" : "All OK");
 
@@ -253,4 +261,11 @@ int main(int argc, char *argv[])
     printf("highest put time: %" PRIu64 "ms\n", highest_put_ms);
     printf("lowest get time: %" PRIu64 "ms\n", lowest_get_ms);
     printf("highest get time: %" PRIu64 "ms\n\n", highest_get_ms);
+
+    mem_err = memory_manager_destroy();
+    if (MEMORY_MANAGER_OK != mem_err)
+    {
+        printf("Failed to shut down memory manager, status %d\n", mem_err);
+        return mem_err;
+    }
 }

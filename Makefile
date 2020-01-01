@@ -24,7 +24,7 @@ SRC_FILES := $(foreach dir,$(SRC_DIR),$(wildcard $(dir)/*.c)) \
 
 OBJ_FILES := $(patsubst %.c,%.o,$(addprefix $(OUTPUT_DIR)/,$(notdir $(SRC_FILES))))
 
-HASHTABLE_TEST_OBJ_FILES := test/hashtable_test.o $(COMMON_OBJ_FILES)
+HASHTABLE_TEST_OBJ_FILES := test/hashtable_test.o $(COMMON_OBJ_FILES) $(RUNTIME_OBJ_FILES) $(BACKEND_OBJ_FILES)
 
 INCLUDE_FLAGS := $(addprefix -I, $(INCLUDE_DIRS))
 

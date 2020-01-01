@@ -4,6 +4,7 @@
  * @brief  Unrolled linked list implementation
  */
 #include <string.h>
+#include "memory_manager_api.h"
 #include "ulist_api.h"
 
 #define MIN_ITEMS_PER_NODE (2u)
@@ -37,7 +38,7 @@ static ulist_node_t *_alloc_new_node(ulist_t *list)
 {
     ulist_node_t *node;
 
-    if ((node = malloc(NODE_ALLOC_SIZE(list))) == NULL)
+    if ((node = memory_manager_alloc(NODE_ALLOC_SIZE(list))) == NULL)
     {
         return NULL;
     }
@@ -238,7 +239,7 @@ static void _delete_node(ulist_t *list, ulist_node_t *node)
         list->tail = node->previous;
     }
 
-    free(node);
+    memory_manager_free(node);
     list->nodes -= 1u;
 }
 
@@ -483,7 +484,7 @@ ulist_status_e ulist_destroy(ulist_t *list)
         {
             old = node;
             node = node->next;
-            free(old);
+            memory_manager_free(old);
         }
     }
 

@@ -1,5 +1,6 @@
 #include <stdio.h>
 
+#include "memory_manager_api.h"
 #include "vm_api.h"
 #include "bytecode_api.h"
 #include "disassemble_api.h"
@@ -9,6 +10,13 @@
 int main(void)
 {
     bytecode_t program;
+
+    memory_manager_status_e mem_err = memory_manager_init();
+    if (MEMORY_MANAGER_OK != mem_err)
+    {
+        printf("Failed to initialize memory manager, status %d\n", mem_err);
+        return mem_err;
+    }
 
     bytecode_status_e bytecode_err = bytecode_create(&program);
     if (BYTECODE_OK != bytecode_err)
@@ -87,4 +95,13 @@ int main(void)
 
     printf("\n\n");
     bytecode_destroy(&program);
+
+    mem_err = memory_manager_destroy();
+    if (MEMORY_MANAGER_OK != mem_err)
+    {
+        printf("Failed to shut down memory manager, status %d\n", mem_err);
+        return mem_err;
+    }
+
+    return 0;
 }

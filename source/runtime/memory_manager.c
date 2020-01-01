@@ -10,12 +10,17 @@
 #include "memory_manager_api.h"
 
 
-// Round size value "n" up to closest "a"-aligned value
 #define SIZE_ROUND_UP(n, a) (((size_t)(n) + \
                      (size_t)((a) - 1)) & ~(size_t)((a) - 1))
 
-// Round pointer "p" down to the closest "a"-aligned address <= "p"
-#define PTR_ALIGN_DOWN(p, a) ((void *)((uintptr_t)(p) & ~(uintptr_t)((a) - 1)))
+
+#define ROUND_DOWN(val, multiple) ((val) - ((val) % (multiple)))
+
+// Get a pointer to the pool containing the given data pointer
+#define GET_POOL_POINTER(heap, data) \
+        ((mempool_t *) \
+            (((uint8_t *) heap) + \
+            ROUND_DOWN(((uint8_t *) data) - ((uint8_t *) heap), POOL_SIZE_BYTES)))
 
 
 // Maximum usable block offset from the start of a pool
@@ -91,8 +96,9 @@ typedef struct
 } mempool_list_t;
 
 
-static memheap_t *headheap = NULL;
-static memheap_t *tailheap = NULL;
+struct memheap *headheap = NULL;
+struct memheap *tailheap = NULL;
+
 
 /* Table of doubly-linked list of pools for each size class. Pools linked in
  * this table have blocks available to be allocated, and pools in this list
@@ -307,9 +313,13 @@ memory_manager_status_e memory_manager_init(void)
  */
 memory_manager_status_e memory_manager_destroy(void)
 {
-    for (memheap_t *heap = headheap; NULL != heap; heap = heap->nextheap)
+    memheap_t *heap = headheap;
+
+    while (NULL != heap)
     {
+        struct memheap *nextheap = heap->nextheap;
         free(heap);
+        heap = nextheap;
     }
 
     headheap = NULL;
@@ -348,7 +358,7 @@ void *memory_manager_realloc(void *data, size_t size)
         if (POINTER_IN_HEAP(heap, data))
         {
             // Align down to get mempool_t pointer for this block
-            mempool_t *pool = (mempool_t *) PTR_ALIGN_DOWN(data, POOL_SIZE_BYTES);
+            mempool_t *pool = GET_POOL_POINTER(heap, data);
 
             // Allocate block for new size
             ret = memory_manager_alloc(size);
@@ -399,7 +409,7 @@ void memory_manager_free(void *data)
         if (POINTER_IN_HEAP(heap, data))
         {
             // Align down to get mempool_t pointer for this block
-            mempool_t *pool = (mempool_t *) PTR_ALIGN_DOWN(data, POOL_SIZE_BYTES);
+            mempool_t *pool = GET_POOL_POINTER(heap, data);
 
             // Freed block now contains pointer to next free block
             *((uint8_t **) data) = pool->freeblock;
