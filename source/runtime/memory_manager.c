@@ -37,8 +37,8 @@
 #define HEAP_BYTES_REMAINING(heap) (HEAP_SIZE_BYTES - heap->nextoffset)
 
 
-// Initial value for pool "nextoffset" member
-#define POOL_INITIAL_NEXTOFFSET (SIZE_ROUND_UP(sizeof(mempool_t), ALIGNMENT_BYTES))
+// Number of bytes used at the beginning of a mempool_t struct for housekeeping
+#define POOL_OVERHEAD_BYTES SIZE_ROUND_UP(sizeof(mempool_t), ALIGNMENT_BYTES)
 
 
 // Checks if a pointer points to an allocated block from the given heap
@@ -70,8 +70,6 @@ typedef struct mempool
     // size of blocks stored in this pool
     uint16_t block_size;
 } mempool_t;
-
-#define POOL_OVERHEAD_BYTES SIZE_ROUND_UP(sizeof(mempool_t), ALIGNMENT_BYTES)
 
 
 /* Stucture representing a heap, containing a fixed number of pools */
@@ -128,10 +126,10 @@ static uint8_t * _init_pool(mempool_t *pool, mempool_list_t *list, size_t size)
     list->tail = pool;
 
     // Increment nextoffset member
-    pool->nextoffset = POOL_INITIAL_NEXTOFFSET + size;
+    pool->nextoffset = POOL_OVERHEAD_BYTES + size;
 
     // Return pointer to first block in new pool
-    return ((uint8_t *) pool) + POOL_INITIAL_NEXTOFFSET;
+    return ((uint8_t *) pool) + POOL_OVERHEAD_BYTES;
 }
 
 
