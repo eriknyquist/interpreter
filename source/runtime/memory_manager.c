@@ -296,12 +296,6 @@ memory_manager_status_e memory_manager_init(void)
     headheap->prevheap = NULL;
     headheap->nextoffset = 0;
 
-    // Set up initial values for the first pool
-    mempool_t *pool = (mempool_t *) headheap->heap;
-    pool->nextpool = NULL;
-    pool->prevpool = NULL;
-    pool->nextoffset = POOL_OVERHEAD_BYTES;
-
     return MEMORY_MANAGER_OK;
 }
 
