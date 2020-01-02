@@ -46,6 +46,12 @@
                                     (((uint8_t *) ptr) < (heap->heap + HEAP_SIZE_BYTES)))
 
 
+/* Evaluates to 1 if the given pool is linked in the usedpools table (meaning the
+ * pool) has already been carved off a heap and has space available for allocations,
+ * 0 otherwise */
+#define POOL_IN_USE(pool) ((NULL != pool->nextpool) || (NULL != pool->prevpool))
+
+
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
@@ -155,6 +161,66 @@ static void _unlink_pool(mempool_t *pool, mempool_list_t *list)
     {
         list->tail = pool->prevpool;
     }
+
+    pool->nextpool = NULL;
+    pool->prevpool = NULL;
+}
+
+
+// Link the given pool into the given list as the new head
+static void _link_pool(mempool_t *pool, mempool_list_t *list)
+{
+    if (NULL != list->head)
+    {
+        list->head->prevpool = pool;
+    }
+
+    pool->nextpool = list->head;
+    pool->prevpool = NULL;
+
+    if (list->head == list->tail)
+    {
+        list->tail = pool;
+    }
+
+    list->head = pool;
+}
+
+
+/* Free a block from the given pool */
+static void _free_block(mempool_t *pool, void *data)
+{
+    // Freed block now contains pointer to next free block
+    *((uint8_t **) data) = pool->freeblock;
+
+    // Freed block is now the head of the free list for this pool
+    pool->freeblock = data;
+
+    /* If this pool is not in the usedpools table, link it back in,
+     * since it now has a free block */
+    if (!POOL_IN_USE(pool))
+    {
+        _link_pool(pool, &usedpools[BSTOI(pool->block_size)]);
+    }
+}
+
+
+/* Pops the head of the free list for the given pool (pool->freeblock must be non-NULL)
+ * and arranges for it to be re-used, returning a pointer to the block */
+static uint8_t *_reuse_freed_block(mempool_t *pool)
+{
+    uint8_t *nexthead = (*(uint8_t **) pool->freeblock);
+    uint8_t *ret = pool->freeblock;
+    pool->freeblock = nexthead;
+
+    /* If this pool has no remaining free blocks or uncarved blocks, unlink it from
+     * the usedpools table */
+    if ((NULL == pool->freeblock) && (POOL_BYTES_REMAINING(pool) < pool->block_size))
+    {
+        _unlink_pool(pool, &usedpools[BSTOI(pool->block_size)]);
+    }
+
+    return ret;
 }
 
 
@@ -186,10 +252,7 @@ static uint8_t * _find_block(memheap_t *heap, size_t size)
         // Found a used pool-- does it have a free list?
         if (NULL != pool->freeblock)
         {
-            uint8_t *nexthead = (*(uint8_t **) pool->freeblock);
-            ret = pool->freeblock;
-            pool->freeblock = nexthead;
-            return ret;
+            return _reuse_freed_block(pool);
         }
 
         // Pool has no free list-- can we carve out a new block?
@@ -403,12 +466,7 @@ void memory_manager_free(void *data)
             // Align down to get mempool_t pointer for this block
             mempool_t *pool = GET_POOL_POINTER(heap, data);
 
-            // Freed block now contains pointer to next free block
-            *((uint8_t **) data) = pool->freeblock;
-
-            // Freed block is now the head of the free list for this pool
-            pool->freeblock = data;
-
+            _free_block(pool, data);
             return;
         }
     }
