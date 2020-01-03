@@ -19,8 +19,8 @@
 // Get a pointer to the pool containing the given data pointer
 #define GET_POOL_POINTER(heap, data) \
         ((mempool_t *) \
-            (((uint8_t *) heap) + \
-            ROUND_DOWN(((uint8_t *) data) - ((uint8_t *) heap), POOL_SIZE_BYTES)))
+            (((uint8_t *) heap->heap) + \
+            ROUND_DOWN(((uint8_t *) data) - ((uint8_t *) heap->heap), POOL_SIZE_BYTES)))
 
 
 // Maximum usable block offset from the start of a pool
@@ -46,8 +46,8 @@
                                     (((uint8_t *) ptr) < (heap->heap + HEAP_SIZE_BYTES)))
 
 
-/* Evaluates to 1 if the given pool is linked in the usedpools table (meaning the
- * pool) has already been carved off a heap and has space available for allocations,
+/* Evaluates to 1 if the given pool is linked in the usedpools table, meaning the
+ * pool has already been carved off a heap and has space available for allocations.
  * 0 otherwise */
 #define POOL_IN_USE(pool) ((NULL != pool->nextpool) || (NULL != pool->prevpool))
 
@@ -105,7 +105,7 @@ struct memheap *tailheap = NULL;
 
 
 /* Table of doubly-linked list of pools for each size class. Pools linked in
- * this table have blocks available to be allocated, and pools in this list
+ * this table have blocks available to be allocated, and pools in each list
  * will be sorted in descending order of fullness percentage */
 static mempool_list_t usedpools[NUM_SIZE_CLASSES];
 
@@ -240,7 +240,7 @@ static uint8_t * _find_block(memheap_t *heap, size_t size)
             return NULL;
         }
 
-        mempool_t *newpool = (mempool_t *) heap->heap + heap->nextoffset;
+        mempool_t *newpool = (mempool_t *) (heap->heap + heap->nextoffset);
         heap->nextoffset += POOL_SIZE_BYTES;
         return _init_pool(newpool, list, size);
     }
