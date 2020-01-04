@@ -10,17 +10,50 @@
 #include "memory_manager_api.h"
 
 
-#define SIZE_ROUND_UP(n, a) (((size_t)(n) + \
-                     (size_t)((a) - 1)) & ~(size_t)((a) - 1))
+/* -- Beginning of tunable settings section -- */
+
+/* If more than this number of bytes is requested, we'll just call plain
+ * old system malloc(). This value needs to be a power of 2. */
+#define SMALL_ALLOC_THRESHOLD_BYTES (512)
 
 
-#define ROUND_DOWN(val, multiple) ((val) - ((val) % (multiple)))
+/* There are 65 size classes: 0 to 512 inclusive, in increments of 8. e.g.
+ * 0, 8, 16, 24, ... and so on. */
+#define ALIGNMENT_BYTES (8)
+
+
+// Size of heaps, which are segmented into pools (must be a power of 2)
+#define HEAP_SIZE_BYTES (256 * 1024)
+
+// Size of pools, which are segmented into blocks (must be a power of 2)
+#define POOL_SIZE_BYTES (4 * 1024)
+
+
+// Map index to block size (multiply by 8 with bit shifts)
+#define ITOBS(i) ((i + 1) << 3)
+
+
+// Map block size to index (divide by 8 with bit shifts)
+#define BSTOI(s) ((s >> 3) - 1)
+
+/* -- End of tunable settings section -- */
+
+
+// Total number of size classes used by the allocator
+#define NUM_SIZE_CLASSES ((SMALL_ALLOC_THRESHOLD_BYTES / ALIGNMENT_BYTES) + 1)
+
+
+/* Round down size "n" to be a multiple of "a" ("a" must be a power of 2). */
+#define ROUND_UP(n, a) (((n) + ((a) - 1)) & ~((a) - 1))
+
+/* Round up size "n" to be a multiple of "a" ("a" must be a power of 2). */
+#define ROUND_DOWN(n, a) ((n) & ~((a) - 1))
 
 // Get a pointer to the pool containing the given data pointer
 #define GET_POOL_POINTER(heap, data) \
         ((mempool_t *) \
             (((uint8_t *) heap->heap) + \
-            ROUND_DOWN(((uint8_t *) data) - ((uint8_t *) heap->heap), POOL_SIZE_BYTES)))
+            ROUND_DOWN(((uint8_t *) data) - heap->heap, POOL_SIZE_BYTES)))
 
 
 // Maximum usable block offset from the start of a pool
@@ -38,7 +71,7 @@
 
 
 // Number of bytes used at the beginning of a mempool_t struct for housekeeping
-#define POOL_OVERHEAD_BYTES SIZE_ROUND_UP(sizeof(mempool_t), ALIGNMENT_BYTES)
+#define POOL_OVERHEAD_BYTES ROUND_UP(sizeof(mempool_t), ALIGNMENT_BYTES)
 
 
 // Checks if a pointer points to an allocated block from the given heap
@@ -61,7 +94,7 @@
  *
  * This structure is overlaid at the beginning of a pool, such that the space
  * available for object allocation in a pool is actually
- * POOL_SIZE_BYTES - SIZE_ROUND_UP(sizeof(mempool_t), ALIGNMENT_BYTES) */
+ * POOL_SIZE_BYTES - ROUND_UP(sizeof(mempool_t), ALIGNMENT_BYTES) */
 typedef struct mempool
 {
     struct mempool *nextpool; // pointer to next pool of this size class
@@ -274,7 +307,7 @@ static uint8_t *_small_alloc(size_t size)
 {
     size_t curr_size = size;
     uint8_t *ret = NULL;
-    size = SIZE_ROUND_UP(size, ALIGNMENT_BYTES);
+    size = ROUND_UP(size, ALIGNMENT_BYTES);
 
     /* Max. number of times to increment the block size class before giving up
      * and allocating a new memheap_t */

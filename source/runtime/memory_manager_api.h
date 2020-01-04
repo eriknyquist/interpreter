@@ -2,35 +2,6 @@
 #define MEMORY_MANAGER_API_H
 
 
-/* If more than this number of bytes is requested, we'll just call plain
- * old system malloc(). This value needs to be a power of 2. */
-#define SMALL_ALLOC_THRESHOLD_BYTES (512)
-
-
-/* There are 65 size classes: 0 to 512 inclusive, in increments of 8. e.g.
- * 0, 8, 16, 24, ... and so on. */
-#define ALIGNMENT_BYTES (8)
-
-
-// Size of heaps, which are segmented into pools
-#define HEAP_SIZE_BYTES (256 * 1024)
-
-// Size of pools, which are segmented into blocks
-#define POOL_SIZE_BYTES (4 * 1024)
-
-
-// Map index to block size (multiply by 8 with bit shifts)
-#define ITOBS(i) ((i + 1) << 3)
-
-
-// Map block size to index
-#define BSTOI(s) ((s >> 3) - 1)
-
-
-// Total number of size classes used by the allocator
-#define NUM_SIZE_CLASSES ((SMALL_ALLOC_THRESHOLD_BYTES / ALIGNMENT_BYTES) + 1)
-
-
 typedef enum
 {
     MEMORY_MANAGER_OK,
