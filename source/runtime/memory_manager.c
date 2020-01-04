@@ -10,39 +10,6 @@
 #include "memory_manager_api.h"
 
 
-/* -- Beginning of tunable settings section -- */
-
-/* If more than this number of bytes is requested, we'll just call plain
- * old system malloc(). This value needs to be a power of 2. */
-#define SMALL_ALLOC_THRESHOLD_BYTES (512)
-
-
-/* There are 65 size classes: 0 to 512 inclusive, in increments of 8. e.g.
- * 0, 8, 16, 24, ... and so on. */
-#define ALIGNMENT_BYTES (8)
-
-
-// Size of heaps, which are segmented into pools (must be a power of 2)
-#define HEAP_SIZE_BYTES (256 * 1024)
-
-// Size of pools, which are segmented into blocks (must be a power of 2)
-#define POOL_SIZE_BYTES (4 * 1024)
-
-
-// Map index to block size (multiply by 8 with bit shifts)
-#define ITOBS(i) ((i + 1) << 3)
-
-
-// Map block size to index (divide by 8 with bit shifts)
-#define BSTOI(s) ((s >> 3) - 1)
-
-/* -- End of tunable settings section -- */
-
-
-// Total number of size classes used by the allocator
-#define NUM_SIZE_CLASSES ((SMALL_ALLOC_THRESHOLD_BYTES / ALIGNMENT_BYTES) + 1)
-
-
 /* Round down size "n" to be a multiple of "a" ("a" must be a power of 2). */
 #define ROUND_UP(n, a) (((n) + ((a) - 1)) & ~((a) - 1))
 
@@ -137,21 +104,26 @@ struct memheap *headheap = NULL;
 struct memheap *tailheap = NULL;
 
 
-/* Table of doubly-linked list of pools for each size class. Pools linked in
+/* Table of doubly-linked lists of pools for each size class. Pools linked in
  * this table have blocks available to be allocated, and pools in each list
  * will be sorted in descending order of fullness percentage */
 static mempool_list_t usedpools[NUM_SIZE_CLASSES];
 
 
-// Initialize a freshly carved-off pool, and return a pointer to the first block
-static uint8_t * _init_pool(mempool_t *pool, mempool_list_t *list, size_t size)
+#ifdef MEMORY_MANAGER_STATS
+/* Table of singly-linked lists of pools for each size class. Pools linked in
+ * this table have no block available for allocating. */
+static struct mempool *fullpools[NUM_SIZE_CLASSES];
+#endif /* MEMORY_MANAGER_STATS */
+
+
+// Add a mempool_t to a mempool_list_t structure as the new tail item
+static void _add_pool_list_tail(mempool_t *pool, mempool_list_t *list)
 {
-    // Add this pool to the usedpools table
     if (NULL == list->tail)
     {
         // First pool of this size class in the usedpools table
         list->head = pool;
-        list->tail = pool;
         pool->prevpool = NULL;
     }
     else
@@ -160,9 +132,18 @@ static uint8_t * _init_pool(mempool_t *pool, mempool_list_t *list, size_t size)
         pool->prevpool = list->tail;
     }
 
-    pool->block_size = size;
-    pool->nextpool = NULL;
     list->tail = pool;
+    pool->nextpool = NULL;
+}
+
+
+// Initialize a freshly carved-off pool, and return a pointer to the first block
+static uint8_t * _init_pool(mempool_t *pool, mempool_list_t *list, size_t size)
+{
+    // Add this pool to the usedpools table, using provided pointer
+    _add_pool_list_tail(pool, list);
+
+    pool->block_size = size;
 
     // Increment nextoffset member
     pool->nextoffset = POOL_OVERHEAD_BYTES + size;
@@ -195,28 +176,15 @@ static void _unlink_pool(mempool_t *pool, mempool_list_t *list)
         list->tail = pool->prevpool;
     }
 
+#ifdef MEMORY_MANAGER_STATS
+    // Add pool to fullpools list
+    mempool_t **fullpool_head = &fullpools[BSTOI(pool->block_size)];
+    pool->nextpool = *fullpool_head;
+    *fullpool_head = pool;
+#else
     pool->nextpool = NULL;
+#endif /* MEMORY_MANAGER_STATS */
     pool->prevpool = NULL;
-}
-
-
-// Link the given pool into the given list as the new head
-static void _link_pool(mempool_t *pool, mempool_list_t *list)
-{
-    if (NULL != list->head)
-    {
-        list->head->prevpool = pool;
-    }
-
-    pool->nextpool = list->head;
-    pool->prevpool = NULL;
-
-    if (list->head == list->tail)
-    {
-        list->tail = pool;
-    }
-
-    list->head = pool;
 }
 
 
@@ -233,7 +201,12 @@ static void _free_block(mempool_t *pool, void *data)
      * since it now has a free block */
     if (!POOL_IN_USE(pool))
     {
-        _link_pool(pool, &usedpools[BSTOI(pool->block_size)]);
+#ifdef MEMORY_MANAGER_STATS
+        // Remove pool from fullpools list
+        fullpools[BSTOI(pool->block_size)] = pool->nextpool;
+#endif /* MEMORY_MANAGER_STATS */
+
+        _add_pool_list_tail(pool, &usedpools[BSTOI(pool->block_size)]);
     }
 }
 
@@ -375,6 +348,11 @@ memory_manager_status_e memory_manager_init(void)
     // Zero out pointer to used pool list table
     memset(usedpools, 0, sizeof(usedpools));
 
+#ifdef MEMORY_MANAGER_STATS
+    // Zero out pointer to full pool list table
+    memset(fullpools, 0, sizeof(fullpools));
+#endif /* MEMORY_MANAGER_STATS */
+
     // Set up initial values for newly alocated heap object
     headheap->nextheap = NULL;
     headheap->prevheap = NULL;
@@ -382,28 +360,6 @@ memory_manager_status_e memory_manager_init(void)
 
     return MEMORY_MANAGER_OK;
 }
-
-
-/**
- * @see memory_manager_api.h
- */
-memory_manager_status_e memory_manager_destroy(void)
-{
-    memheap_t *heap = headheap;
-
-    while (NULL != heap)
-    {
-        struct memheap *nextheap = heap->nextheap;
-        free(heap);
-        heap = nextheap;
-    }
-
-    headheap = NULL;
-    tailheap = NULL;
-
-    return MEMORY_MANAGER_OK;
-}
-
 
 /**
  * @see memory_manager_api.h
@@ -426,6 +382,11 @@ void *memory_manager_alloc(size_t size)
  */
 void *memory_manager_realloc(void *data, size_t size)
 {
+    if (NULL == data)
+    {
+        return memory_manager_alloc(size);
+    }
+
     void * ret = NULL;
 
     // Check if source ptr is from one of our heaps
@@ -494,4 +455,142 @@ void memory_manager_free(void *data)
 
     // Pointer is not from any of our memheap_t objects-- free with system free()
     free(data);
+}
+
+
+#ifdef MEMORY_MANAGER_STATS
+#include <stdio.h>
+
+/**
+ * @see memory_manager_api.h
+ */
+memory_manager_status_e memory_manager_stats(mem_stats_t *stats)
+{
+    if (NULL == headheap)
+    {
+        return MEMORY_MANAGER_NOT_INIT;
+    }
+
+    if (NULL == stats)
+    {
+        return MEMORY_MANAGER_INVALID_PARAM;
+    }
+
+    unsigned total_pool_count = 0u;
+
+
+    // Get heap_count
+    unsigned heap_count = 0u;
+
+    for (memheap_t *heap = headheap; NULL != heap; heap = heap->nextheap)
+    {
+        heap_count++;
+    }
+
+    stats->heap_count = heap_count;
+
+    // Get full_pool_count values
+    for (unsigned i = 0; i < NUM_SIZE_CLASSES; i++)
+    {
+        unsigned full_count = 0u;
+        for (mempool_t *curr = fullpools[i]; NULL != curr; curr = curr->nextpool)
+        {
+            full_count++;
+            total_pool_count++;
+        }
+
+        stats->full_pool_count[i] = full_count;
+    }
+
+    // Get used_pool_count values
+    for (unsigned i = 0; i < NUM_SIZE_CLASSES; i++)
+    {
+        unsigned used_count = 0u;
+        for (mempool_t *curr = usedpools[i].head; NULL != curr; curr = curr->nextpool)
+        {
+            used_count++;
+            total_pool_count++;
+        }
+
+        stats->used_pool_count[i] = used_count;
+    }
+
+    stats->total_pool_count = total_pool_count;
+
+    return MEMORY_MANAGER_OK;
+}
+
+
+/**
+ * @see memory_manager_api.h
+ */
+memory_manager_status_e memory_manager_print_stats(mem_stats_t *stats)
+{
+    if (NULL == stats)
+    {
+        return MEMORY_MANAGER_INVALID_PARAM;
+    }
+
+    printf("Total heap count: %d\n", stats->heap_count);
+    printf("Total pool count: %d\n\n", stats->total_pool_count);
+
+    printf("---- Used pools ----\n\n");
+    for (unsigned i = 0; i < NUM_SIZE_CLASSES; i++)
+    {
+        unsigned count = stats->used_pool_count[i];
+        if (0u < count)
+        {
+            printf("%d %d-byte pool%s\n",
+                   count, ITOBS(i), (1 < count) ? "s" : "");
+        }
+    }
+
+    printf("\n\n---- Full pools ----\n\n");
+    for (unsigned i = 0; i < NUM_SIZE_CLASSES; i++)
+    {
+        unsigned count = stats->full_pool_count[i];
+        if (0u < count)
+        {
+            printf("%d %d-byte pool%s\n",
+                   count, ITOBS(i), (1 < count) ? "s" : "");
+        }
+    }
+
+    return MEMORY_MANAGER_OK;
+}
+#endif /* MEMORY_MANAGER_STATS */
+
+
+/**
+ * @see memory_manager_api.h
+ */
+memory_manager_status_e memory_manager_destroy(void)
+{
+#ifdef MEMORY_MANAGER_STATS
+    mem_stats_t stats;
+    memory_manager_status_e err;
+
+    if ((err = memory_manager_stats(&stats)) != MEMORY_MANAGER_OK)
+    {
+        return err;
+    }
+
+    if ((err = memory_manager_print_stats(&stats)) != MEMORY_MANAGER_OK)
+    {
+        return err;
+    }
+#endif /* MEMORY_MANAGER_STATS */
+    memheap_t *heap = headheap;
+
+    while (NULL != heap)
+    {
+        struct memheap *nextheap = heap->nextheap;
+        free(heap);
+        heap = nextheap;
+    }
+
+    headheap = NULL;
+    tailheap = NULL;
+
+    return MEMORY_MANAGER_OK;
 }

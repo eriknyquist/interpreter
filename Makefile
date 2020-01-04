@@ -36,16 +36,16 @@ CFLAGS += -Wall $(INCLUDE_FLAGS)
 
 .PHONY: all debug output_dir clean
 
-all: CFLAGS += -O3
+all: CFLAGS += -O3 -DMEMORY_MANAGER_STATS
 all: $(BUILD_OUTPUT)
 
-debug: CFLAGS += -g -O0
+debug: CFLAGS += -g -O0 -DMEMORY_MANAGER_STATS
 debug: $(BUILD_OUTPUT)
 
 $(BUILD_OUTPUT): output_dir $(OBJ_FILES)
 	$(CC) $(LFLAGS) $(OBJ_FILES) -o $@
 
-hashtable_test: CFLAGS += -g -O0
+hashtable_test: CFLAGS += -g -O0 -DMEMORY_MANAGER_STATS
 hashtable_test: $(HASHTABLE_TEST)
 
 $(HASHTABLE_TEST): output_dir $(HASHTABLE_TEST_OBJ_FILES)
