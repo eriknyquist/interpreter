@@ -247,35 +247,23 @@ static uint8_t * _find_block(memheap_t *heap, size_t size)
 
     mempool_t *pool = list->head;
 
-    while (NULL != pool)
+    // Does this used pool have a free list?
+    if (NULL != pool->freeblock)
     {
-        // Found a used pool-- does it have a free list?
-        if (NULL != pool->freeblock)
-        {
-            return _reuse_freed_block(pool);
-        }
-
-        // Pool has no free list-- can we carve out a new block?
-        if (POOL_BYTES_REMAINING(pool) >= pool->block_size)
-        {
-            ret = ((uint8_t *) pool) + pool->nextoffset;
-            pool->nextoffset += pool->block_size;
-
-            if (POOL_BYTES_REMAINING(pool) < pool->block_size)
-            {
-                // No more space in this pool-- unlink from usedpools table
-                _unlink_pool(pool, list);
-            }
-
-            return ret;
-        }
-
-
-        // Pool has no free list or uncarved blocks, check the next one
-        pool = pool->nextpool;
+        return _reuse_freed_block(pool);
     }
 
-    return NULL;
+    // Pool has no free list-- carve out a new block
+    ret = ((uint8_t *) pool) + pool->nextoffset;
+    pool->nextoffset += pool->block_size;
+
+    if (POOL_BYTES_REMAINING(pool) < pool->block_size)
+    {
+        // No more space in this pool-- unlink from usedpools table
+        _unlink_pool(pool, list);
+    }
+
+    return ret;
 }
 
 
