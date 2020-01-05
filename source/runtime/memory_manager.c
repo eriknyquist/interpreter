@@ -192,7 +192,9 @@ static void _unlink_pool(mempool_t *pool, mempool_list_t *list)
 /* Free a block from the given pool */
 static void _free_block(mempool_t *pool, void *data)
 {
-    uint8_t **head = &freeblocks[BSTOI(pool->block_size)];
+
+    unsigned index = BSTOI(pool->block_size);
+    uint8_t **head = &freeblocks[index];
 
     // Freed block now contains pointer to next free block
     *((uint8_t **) data) = *head;
@@ -206,18 +208,22 @@ static void _free_block(mempool_t *pool, void *data)
     {
 #ifdef MEMORY_MANAGER_STATS
         // Remove pool from fullpools list
-        fullpools[BSTOI(pool->block_size)] = pool->nextpool;
+        fullpools[index] = pool->nextpool;
 #endif /* MEMORY_MANAGER_STATS */
 
-        _add_pool_list_tail(pool, &usedpools[BSTOI(pool->block_size)]);
+        _add_pool_list_tail(pool, &usedpools[index]);
     }
 }
 
 
-// Pops the given block off the free list and arranges for it to be re-used
+/* Pops the given block off the free list (must be the head block) and arranges
+ * for it to be re-used */
 static void _reuse_freed_block(memheap_t *heap, uint8_t **freehead)
 {
     mempool_t *pool = GET_POOL_POINTER(heap, *freehead);
+
+    /* The block we're re-using contains a pointer to next free block, and that
+     * next free block is now the head of this free list */
     uint8_t *nexthead = (*(uint8_t **) *freehead);
     *freehead = nexthead;
 
@@ -230,8 +236,9 @@ static void _reuse_freed_block(memheap_t *heap, uint8_t **freehead)
 }
 
 
-/* Find an available block of the given size in the given memheap_t object.
- * If a block is found, a pointer to it will be returned, otherwise NULL */
+/* Find an available block of in the given size class in the given memheap_t
+ * object. If a block is found, a pointer to it will be returned,
+ * otherwise NULL */
 static uint8_t * _find_block(memheap_t *heap, size_t size)
 {
     uint8_t *ret = NULL;
@@ -306,13 +313,13 @@ static uint8_t *_small_alloc(size_t size)
                 return ret;
             }
 
-            /* No used pools with enough space in this class,
-             * increment and try the next class */
+            /* No available blocks in this size class,
+             * increment and try the next size class */
             curr_size += ALIGNMENT_BYTES;
         }
     }
 
-    // Couldn't find an available block in existing heaps, allocate new tailheap
+    // Couldn't find an available block in existing heaps, allocate new heap
     memheap_t *newheap;
 
     if ((newheap = malloc(sizeof(memheap_t))) == NULL)
