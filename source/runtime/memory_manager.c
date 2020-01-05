@@ -67,8 +67,6 @@ typedef struct mempool
     struct mempool *nextpool; // pointer to next pool of this size class
     struct mempool *prevpool; // pointer to previous pool of this size class
 
-    uint8_t *freeblock; // head of free block list
-
     /* offset in bytes of next unused block in this pool, from the
      * beginning of this struct */
     uint16_t nextoffset;
@@ -108,6 +106,9 @@ struct memheap *tailheap = NULL;
  * this table have blocks available to be allocated, and pools in each list
  * will be sorted in descending order of fullness percentage */
 static mempool_list_t usedpools[NUM_SIZE_CLASSES];
+
+/* Table of singly linked lists of free blocks for each size class */
+static uint8_t *freeblocks[NUM_SIZE_CLASSES];
 
 
 #ifdef MEMORY_MANAGER_STATS
@@ -191,11 +192,13 @@ static void _unlink_pool(mempool_t *pool, mempool_list_t *list)
 /* Free a block from the given pool */
 static void _free_block(mempool_t *pool, void *data)
 {
+    uint8_t **head = &freeblocks[BSTOI(pool->block_size)];
+
     // Freed block now contains pointer to next free block
-    *((uint8_t **) data) = pool->freeblock;
+    *((uint8_t **) data) = *head;
 
     // Freed block is now the head of the free list for this pool
-    pool->freeblock = data;
+    *head = data;
 
     /* If this pool is not in the usedpools table, link it back in,
      * since it now has a free block */
@@ -211,22 +214,19 @@ static void _free_block(mempool_t *pool, void *data)
 }
 
 
-/* Pops the head of the free list for the given pool (pool->freeblock must be non-NULL)
- * and arranges for it to be re-used, returning a pointer to the block */
-static uint8_t *_reuse_freed_block(mempool_t *pool)
+// Pops the given block off the free list and arranges for it to be re-used
+static void _reuse_freed_block(memheap_t *heap, uint8_t **freehead)
 {
-    uint8_t *nexthead = (*(uint8_t **) pool->freeblock);
-    uint8_t *ret = pool->freeblock;
-    pool->freeblock = nexthead;
+    mempool_t *pool = GET_POOL_POINTER(heap, *freehead);
+    uint8_t *nexthead = (*(uint8_t **) *freehead);
+    *freehead = nexthead;
 
     /* If this pool has no remaining free blocks or uncarved blocks, unlink it from
      * the usedpools table */
-    if ((NULL == pool->freeblock) && (POOL_BYTES_REMAINING(pool) < pool->block_size))
+    if ((NULL == *freehead) && (POOL_BYTES_REMAINING(pool) < pool->block_size))
     {
         _unlink_pool(pool, &usedpools[BSTOI(pool->block_size)]);
     }
-
-    return ret;
 }
 
 
@@ -235,7 +235,9 @@ static uint8_t *_reuse_freed_block(mempool_t *pool)
 static uint8_t * _find_block(memheap_t *heap, size_t size)
 {
     uint8_t *ret = NULL;
-    mempool_list_t *list = &usedpools[BSTOI(size)];
+    unsigned index = BSTOI(size);
+
+    mempool_list_t *list = &usedpools[index];
 
     if (NULL == list->head)
     {
@@ -252,11 +254,13 @@ static uint8_t * _find_block(memheap_t *heap, size_t size)
     }
 
     mempool_t *pool = list->head;
+    uint8_t **freehead = &freeblocks[index];
 
     // Does this used pool have a free list?
-    if (NULL != pool->freeblock)
+    if (NULL != *freehead)
     {
-        return _reuse_freed_block(pool);
+        _reuse_freed_block(heap, freehead);
+        return *freehead;
     }
 
     // Pool has no free list-- carve out a new block
@@ -345,8 +349,11 @@ memory_manager_status_e memory_manager_init(void)
 
     tailheap = headheap;
 
-    // Zero out pointer to used pool list table
+    // Zero out used pool list table
     memset(usedpools, 0, sizeof(usedpools));
+
+    // Zero out free block list table
+    memset(freeblocks, 0, sizeof(freeblocks));
 
 #ifdef MEMORY_MANAGER_STATS
     // Zero out pointer to full pool list table
