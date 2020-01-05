@@ -1,6 +1,114 @@
 /*
  * Fixed-size block allocator for small allocations ( < 512 bytes). Heavily
  * influenced by Python's obmalloc.c, although far simpler.
+ *
+ * We allocate memory from the system in chunks of HEAP_SIZE_BYTES, and we refer
+ * to this largest unit of memory as a "heap" ("arena" seems to be the common
+ * term for similar chunks in cpython and malloc implementations, but whatever).
+ *
+ * Heaps are carved into fixed-size pools of POOL_SIZE_BYTES. All pools are the
+ * same size, but can contain different block sizes. Valid block sizes range from
+ * 8 to 512 bytes, in multiples of 8 (e.g. 8, 16, 24, 32, ... 504, 512). This
+ * means there are 64 size classes in total. The housekeeping data for a pool is
+ * stored within the area allocated for a pool itself, such that the space
+ * reserved for blocks within a pool is actually:
+ *
+ * POOL_SIZE_BYTES - ROUND_UP(sizeof(mempool_t), ALIGNMENT_BYTES)
+ *
+ * This is not ideal, as it results in most pools having an unused partial block
+ * (an area for possible future improvement)
+ *
+ * Pools are then further carved into blocks of a fixed size. No housekeeping
+ * data is required for blocks that are in use, although when a block is freed
+ * the block space is re-used to hold a pointer to the next free block (more
+ * about this later)
+ *
+ *
+ * Consider the following operations:
+ *
+ *   - memory_manager_init()
+ *
+ *   - block1 = memory_manager_alloc(8);
+ *
+ *   - block2 = memory_manager_alloc(8);
+ *
+ *   - memory_manager_free(block1);
+ *
+ *
+ * The diagram below illustrates what the allocated heap structure looks like
+ * after these operations (note that the pool size is 4096 bytes, and
+ * ROUND_UP(sizeof(mempool_t), ALIGNMENT_BYTES) is 24 bytes in the diagram
+ * below):
+ *
+ *   heap start, byte 0
+ *   -------------------->  +-------------------------------+
+ *                          |                               |
+ *                          |          memheap_t            |
+ *   pool 0 start, byte 24  |                               |
+ *   -------------------->  +-------------------------------+
+ *                          |          block1 (freed)       |
+ *                          +-------------------------------+
+ *                          |          block2 (in use)      |
+ *                          +-------------------------------+
+ *                          |          unused block         |
+ *                          +-------------------------------+
+ *                          |                               |
+ *                          |             .....             |
+ *                          |                               |
+ *   start of unused pool   +-------------------------------+
+ *   space, byte 4120       |          unused block         |
+ *   -------------------->  +-------------------------------+
+ *                          |                               |
+ *                          |             .....             |
+ *   heap end, byte 262168  |                               |
+ *   -------------------->  +-------------------------------+
+ *
+ *
+ *  Heap management
+ *  ---------------
+ *
+ *  Heaps are allocated as needed and maintained in a doubly-linked list. When
+ *  a request cannot be satisfied by any existing heaps, a new heap is allocated
+ *  and added to the end of this list (more about this in 'Allocation strategy').
+ *
+ *
+ *  Pool management
+ *  ---------------
+ *
+ *  For each size class, we maintain a doubly-linked list of all pools in that
+ *  size class (in all heaps) with available space ("usedpools" table).
+ *  When a pool is full (no freed blocks or unused blocks), it will be removed
+ *  from the usedpools table, and will be re-added to the table if blocks are
+ *  later freed.
+ *
+ *
+ *  Block management
+ *  ----------------
+ *
+ *  For each size class, we maintain a singly-linked list of all free blocks in
+ *  that size class, in all heaps ("freeblocks" table). When a block is freed,
+ *  it becomes the head of the free list for its size class, which is achieved
+ *  by re-using the initial bytes of the freed block to contain a pointer to the
+ *  next free block.
+ *
+ *
+ *  Allocation strategy
+ *  -------------------
+ *
+ *  Like python's obmalloc.c, we do our best to avoid touching a piece of memory
+ *  until it is needed. Pools and blocks are only carved out as-needed to satisfy
+ *  requests.
+ *
+ *  Requests larger than SMALL_ALLOC_THRESHOLD_BYTES are just passed
+ *  directly to system malloc(). For smaller requests, we will first look in
+ *  freeblocks for a freed block in the same size class that we can re-use. If
+ *  this fails, we'll see if usedpools contains any pools in the same size class
+ *  that we can carve a new block out of. If not, then we'll see if the current
+ *  heap has space to carve out a pool. If we can't carve out a new pool, then
+ *  we will try incrementing the size class (up to 3 times) and repeating all
+ *  the above checks. If that also fails, we'll repeat all of the above for all
+ *  other allocated heap objects. Finally, if all of that is unsuccesful, we'll
+ *  allocate a new heap object.
  */
 
 #include <stdlib.h>
