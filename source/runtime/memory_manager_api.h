@@ -121,6 +121,9 @@ typedef struct
 
     // Per-size-class full pool count
     unsigned full_pool_count[NUM_SIZE_CLASSES];
+
+    // Per-size-class free block count
+    unsigned free_block_count[NUM_SIZE_CLASSES];
 } mem_stats_t;
 
 

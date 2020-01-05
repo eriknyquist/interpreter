@@ -613,6 +613,18 @@ memory_manager_status_e memory_manager_stats(mem_stats_t *stats)
 
     stats->total_pool_count = total_pool_count;
 
+    // Get free_block_count values
+    for (unsigned i = 0; i < NUM_SIZE_CLASSES; i++)
+    {
+        unsigned block_count = 0u;
+        for (uint8_t *head = freeblocks[i]; NULL != head; head = *((uint8_t **) head))
+        {
+            block_count++;
+        }
+
+        stats->free_block_count[i] = block_count;
+    }
+
     return MEMORY_MANAGER_OK;
 }
 
@@ -652,6 +664,18 @@ memory_manager_status_e memory_manager_print_stats(mem_stats_t *stats)
         }
     }
 
+    printf("\n---- Free blocks ----\n\n");
+    for (unsigned i = 0; i < NUM_SIZE_CLASSES; i++)
+    {
+        unsigned count = stats->free_block_count[i];
+        if (0u < count)
+        {
+            printf("%d %d-byte block%s\n",
+                   count, ITOBS(i), (1 < count) ? "s" : "");
+        }
+    }
+
+    printf("\n");
     return MEMORY_MANAGER_OK;
 }
 #endif /* MEMORY_MANAGER_STATS */
