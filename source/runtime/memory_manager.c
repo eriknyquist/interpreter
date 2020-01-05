@@ -237,6 +237,19 @@ static uint8_t * _find_block(memheap_t *heap, size_t size)
     uint8_t *ret = NULL;
     unsigned index = BSTOI(size);
 
+
+    /* Best-case scenario; there is a freed block in this size class
+     * available for re-use. Let's check for that first */
+    uint8_t **freehead = &freeblocks[index];
+
+    if (NULL != *freehead)
+    {
+        _reuse_freed_block(heap, freehead);
+        return *freehead;
+    }
+
+    /* No freed block available for re-use; next best option is to carve out a
+     * new block from a pool in the usedpools table. Can we do that? */
     mempool_list_t *list = &usedpools[index];
 
     if (NULL == list->head)
@@ -253,17 +266,9 @@ static uint8_t * _find_block(memheap_t *heap, size_t size)
         return _init_pool(newpool, list, size);
     }
 
+    /* Carve out a new block from the head of the usedpools list
+     * for this size class */
     mempool_t *pool = list->head;
-    uint8_t **freehead = &freeblocks[index];
-
-    // Does this used pool have a free list?
-    if (NULL != *freehead)
-    {
-        _reuse_freed_block(heap, freehead);
-        return *freehead;
-    }
-
-    // Pool has no free list-- carve out a new block
     ret = ((uint8_t *) pool) + pool->nextoffset;
     pool->nextoffset += pool->block_size;
 
