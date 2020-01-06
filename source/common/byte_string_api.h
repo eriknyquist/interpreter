@@ -40,7 +40,7 @@ byte_string_status_e byte_string_create(byte_string_t *string);
 
 /**
  * Destroy an initialized byte string instance, and free any memory that may
- * have been alocated
+ * have been allocated
  *
  * @param    string    Pointer to byte string structure to destroy
  *

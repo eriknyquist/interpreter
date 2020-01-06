@@ -10,18 +10,18 @@
  * same size, but can contain different block sizes. Valid block sizes range from
  * 8 to 512 bytes, in multiples of 8 (e.g. 8, 16, 24, 32, ... 504, 512). This
  * means there are 64 size classes in total. The housekeeping data for a pool is
- * stored within the area allocated for a pool itself, such that the space
+ * stored within the area allocated for the pool itself, such that the space
  * reserved for blocks within a pool is actually:
  *
  * POOL_SIZE_BYTES - ROUND_UP(sizeof(mempool_t), ALIGNMENT_BYTES)
  *
  * This is not ideal, as it results in most pools having an unused partial block
- * (an area for possible future improvement)
+ * (an area for possible future improvement).
  *
  * Pools are then further carved into blocks of a fixed size. No housekeeping
  * data is required for blocks that are in use, although when a block is freed
  * the block space is re-used to hold a pointer to the next free block (more
- * about this later)
+ * about this later).
  *
  *
  * Consider the following operations:
@@ -106,11 +106,12 @@
  *  directly to system malloc(). For smaller requests, we will first look in
  *  freeblocks for a freed block in the same size class that we can re-use. If
  *  this fails, we'll see if usedpools contains any pools in the same size class
- *  that we can carve a new block out of. If not, then we'll see if the current
- *  heap has space to carve out a pool. If we can't carve out a new pool, then
- *  we will try incrementing the size class (up to 3 times) and repeating all
- *  the above checks. If that also fails, we'll repeat all of the above for all
- *  other allocated heap objects. Finally, if all of that is unsuccesful, we'll
+ *  that we can carve a new block out of. If these 2 checks fail, and there are
+ *  entries for the current size class in the freeblocks and usedpools tables,
+ *  then we will try incrementing the size class (up to 3 times) and repeat the
+ *  same 2 checks for each alternate size class. If that also fails, we will
+ *  try to carve out a new pool (of the originally requested block size), trying
+ *  each heap until one succeeeds. Finally, if all of that is unsuccesful, we'll
  *  allocate a new heap object.
  */
 
@@ -301,60 +302,75 @@ static void _unlink_pool(mempool_t *pool, mempool_list_t *list)
 }
 
 
-/* Find an available block of in the given size class in the given memheap_t
- * object. If a block is found, a pointer to it will be returned,
- * otherwise NULL */
-static uint8_t * _find_block(memheap_t *heap, size_t size)
+static uint8_t *_find_block_in_used_pool(size_t size)
 {
     uint8_t *ret = NULL;
     unsigned index = BSTOI(size);
+    const uint16_t max_bsz_increase = 3;
 
-
-    /* Best-case scenario; there is a freed block in this size class
-     * available for re-use. Let's check for that first */
-    uint8_t **freehead = &freeblocks[index];
-
-    if (NULL != *freehead)
+    for (uint16_t i = 0;
+         (index + i) < NUM_SIZE_CLASSES && i <= max_bsz_increase; i++)
     {
-        /* Pop the head block off the free list. The block we're re-using contains
-         * a pointer to next free block, and that next free block is now the head
-         * of this free list */
-        uint8_t *oldhead = *freehead;
-        *freehead = (*(uint8_t **) *freehead);
-        return oldhead;
+        /* Best-case scenario; there is a freed block in this size class
+         * available for re-use. Let's check for that first */
+        uint8_t **freehead = &freeblocks[index + i];
+
+        if (NULL != *freehead)
+        {
+            /* Pop the head block off the free list. The block we're re-using contains
+             * a pointer to next free block, and that next free block is now the head
+             * of this free list */
+            uint8_t *oldhead = *freehead;
+            *freehead = (*(uint8_t **) *freehead);
+            return oldhead;
+        }
+
+        /* No freed block available for re-use; next best option is to carve out a
+         * new block from a pool in the usedpools table. Can we do that? */
+        mempool_list_t *list = &usedpools[index + i];
+
+        if (NULL == list->head)
+        {
+            /* If there is nothing in the usedpool table or freeblocks table for
+             * this size class, bail out of retry iterations early, which will
+             * force a new pool to be carved out. */
+            return NULL;
+        }
+
+        /* Carve out a new block from the head of the usedpools list
+         * for this size class */
+        mempool_t *pool = list->head;
+        ret = ((uint8_t *) pool) + pool->nextoffset;
+        pool->nextoffset += pool->block_size;
+
+        if (POOL_BYTES_REMAINING(pool) < pool->block_size)
+        {
+            // No more space in this pool-- unlink from usedpools table
+            _unlink_pool(pool, list);
+        }
+
+        return ret;
     }
 
-    /* No freed block available for re-use; next best option is to carve out a
-     * new block from a pool in the usedpools table. Can we do that? */
-    mempool_list_t *list = &usedpools[index];
+    return NULL;
+}
 
-    if (NULL == list->head)
+
+static uint8_t *_find_new_pool(size_t size)
+{
+    for (memheap_t *heap = headheap; NULL != heap; heap = heap->nextheap)
     {
-        /* Nothing in usedpools table for this size class yet; try to carve
-         * out a new pool and return a pointer to the first block */
         if (HEAP_BYTES_REMAINING(heap) < POOL_SIZE_BYTES)
         {
-            return NULL;
+            continue;
         }
 
         mempool_t *newpool = (mempool_t *) (heap->heap + heap->nextoffset);
         heap->nextoffset += POOL_SIZE_BYTES;
-        return _init_pool(newpool, list, size);
+        return _init_pool(newpool, &usedpools[BSTOI(size)], size);
     }
 
-    /* Carve out a new block from the head of the usedpools list
-     * for this size class */
-    mempool_t *pool = list->head;
-    ret = ((uint8_t *) pool) + pool->nextoffset;
-    pool->nextoffset += pool->block_size;
-
-    if (POOL_BYTES_REMAINING(pool) < pool->block_size)
-    {
-        // No more space in this pool-- unlink from usedpools table
-        _unlink_pool(pool, list);
-    }
-
-    return ret;
+    return NULL;
 }
 
 
@@ -363,32 +379,22 @@ static uint8_t * _find_block(memheap_t *heap, size_t size)
  * increasing the size 3 times before allocating a new memheap_t object */
 static uint8_t *_small_alloc(size_t size)
 {
-    size_t curr_size = size;
     uint8_t *ret = NULL;
     size = ROUND_UP(size, ALIGNMENT_BYTES);
 
-    /* Max. number of times to increment the block size class before giving up
-     * and allocating a new memheap_t */
-    const uint16_t max_bsz_increase = 3;
-
-    for (memheap_t *heap = headheap; NULL != heap; heap = heap->nextheap)
+    // Try to find a block in in a pool that's already in use
+    if ((ret = _find_block_in_used_pool(size)) != NULL)
     {
-        for (uint16_t i = 0;
-             curr_size <= MAX_BLOCK_OFFSET && i <= max_bsz_increase; i++)
-        {
-            ret = _find_block(heap, curr_size);
-            if (NULL != ret)
-            {
-                return ret;
-            }
-
-            /* No available blocks in this size class,
-             * increment and try the next size class */
-            curr_size += ALIGNMENT_BYTES;
-        }
+        return ret;
     }
 
-    // Couldn't find an available block in existing heaps, allocate new heap
+    // Try to carve out a new pool in existing heaps
+    if ((ret = _find_new_pool(size)) != NULL)
+    {
+        return ret;
+    }
+
+    // Couldn't satisfy request with existing heaps, allocate new heap
     memheap_t *newheap;
 
     if ((newheap = malloc(sizeof(memheap_t))) == NULL)
@@ -441,7 +447,7 @@ memory_manager_status_e memory_manager_init(void)
     memset(fullpools, 0, sizeof(fullpools));
 #endif /* MEMORY_MANAGER_STATS */
 
-    // Set up initial values for newly alocated heap object
+    // Set up initial values for newly allocated heap object
     headheap->nextheap = NULL;
     headheap->prevheap = NULL;
     headheap->nextoffset = 0;
