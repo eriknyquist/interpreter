@@ -106,12 +106,9 @@
  *  directly to system malloc(). For smaller requests, we will first look in
  *  freeblocks for a freed block in the same size class that we can re-use. If
  *  this fails, we'll see if usedpools contains any pools in the same size class
- *  that we can carve a new block out of. If these 2 checks fail, and there are
- *  entries for the current size class in the freeblocks and usedpools tables,
- *  then we will try incrementing the size class (up to 3 times) and repeat the
- *  same 2 checks for each alternate size class. If that also fails, we will
- *  try to carve out a new pool (of the originally requested block size), trying
- *  each heap until one succeeeds. Finally, if all of that is unsuccesful, we'll
+ *  that we can carve a new block out of. If this also fails, we will try to
+ *  carve out a new pool (of the originally requested block size), trying each
+ *  heap until one succeeeds. Finally, if all of that is unsuccesful, we'll
  *  allocate a new heap object.
  */
 
@@ -302,57 +299,48 @@ static void _unlink_pool(mempool_t *pool, mempool_list_t *list)
 }
 
 
+/* Tries first to re-use a freed block for the requested size if possible, and
+ * then try to carve out a new block from a used pool. If both fail, returns NULL,
+ * otherwise a pointer to the available block is returned */
 static uint8_t *_find_block_in_used_pool(size_t size)
 {
     uint8_t *ret = NULL;
     unsigned index = BSTOI(size);
-    const uint16_t max_bsz_increase = 3;
 
-    for (uint16_t i = 0;
-         (index + i) < NUM_SIZE_CLASSES && i <= max_bsz_increase; i++)
+    /* Best-case scenario; there is a freed block in this size class
+     * available for re-use. Let's check for that first */
+    uint8_t **freehead = &freeblocks[index];
+    if (NULL != *freehead)
     {
-        /* Best-case scenario; there is a freed block in this size class
-         * available for re-use. Let's check for that first */
-        uint8_t **freehead = &freeblocks[index + i];
-
-        if (NULL != *freehead)
-        {
-            /* Pop the head block off the free list. The block we're re-using contains
-             * a pointer to next free block, and that next free block is now the head
-             * of this free list */
-            uint8_t *oldhead = *freehead;
-            *freehead = (*(uint8_t **) *freehead);
-            return oldhead;
-        }
-
-        /* No freed block available for re-use; next best option is to carve out a
-         * new block from a pool in the usedpools table. Can we do that? */
-        mempool_list_t *list = &usedpools[index + i];
-
-        if (NULL == list->head)
-        {
-            /* If there is nothing in the usedpool table or freeblocks table for
-             * this size class, bail out of retry iterations early, which will
-             * force a new pool to be carved out. */
-            return NULL;
-        }
-
-        /* Carve out a new block from the head of the usedpools list
-         * for this size class */
-        mempool_t *pool = list->head;
-        ret = ((uint8_t *) pool) + pool->nextoffset;
-        pool->nextoffset += pool->block_size;
-
-        if (POOL_BYTES_REMAINING(pool) < pool->block_size)
-        {
-            // No more space in this pool-- unlink from usedpools table
-            _unlink_pool(pool, list);
-        }
-
-        return ret;
+        /* Pop the head block off the free list. The block we're re-using contains
+         * a pointer to next free block, and that next free block is now the head
+         * of this free list */
+        uint8_t *oldhead = *freehead;
+        *freehead = (*(uint8_t **) *freehead);
+        return oldhead;
     }
 
-    return NULL;
+    /* No freed block available for re-use; next best option is to carve out a
+     * new block from a pool in the usedpools table. Can we do that? */
+    mempool_list_t *list = &usedpools[index];
+    if (NULL == list->head)
+    {
+        return NULL;
+    }
+
+    /* Carve out a new block from the head of the usedpools list
+     * for this size class */
+    mempool_t *pool = list->head;
+    ret = ((uint8_t *) pool) + pool->nextoffset;
+    pool->nextoffset += pool->block_size;
+
+    if (POOL_BYTES_REMAINING(pool) < pool->block_size)
+    {
+        // No more space in this pool-- unlink from usedpools table
+        _unlink_pool(pool, list);
+    }
+
+    return ret;
 }
 
 
@@ -374,9 +362,9 @@ static uint8_t *_find_new_pool(size_t size)
 }
 
 
-/* Find an available block and return a pointer to it. If there are no existing
- * available blocks in the requested size class, this function will try
- * increasing the size 3 times before allocating a new memheap_t object */
+/* Find an available block and return a pointer to it. If no available blocks
+ * in the requested size class can be found in existing memheap_t objects, this
+ * function will allocate a new memheap_t object to satisfy the request */
 static uint8_t *_small_alloc(size_t size)
 {
     uint8_t *ret = NULL;
