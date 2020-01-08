@@ -281,11 +281,11 @@ static uint8_t *freeblocks[NUM_SIZE_CLASSES];
 /* Table of singly-linked lists of pools for each size class. Pools linked in
  * this table have no remaining uncarved blocks. */
 static struct mempool *fullpools[NUM_SIZE_CLASSES];
+#endif /* MEMORY_MANAGER_STATS */
 
 /* Singly-linked list of full heaps. Heaps linked in this list have no
  * remaining uncarved pools. */
 static memheap_t *fullheaps = NULL;
-#endif /* MEMORY_MANAGER_STATS */
 
 
 // Initialize a freshly carved-off pool, and return a pointer to the first block
@@ -363,13 +363,12 @@ static uint8_t *_find_new_pool(size_t size)
 
     if (HEAP_BYTES_REMAINING(heap) < POOL_SIZE_BYTES)
     {
-        // Unlink this heap from usedheaps list
+        // Unlink this heap from doubly-linked usedheaps list
         LIST_UNLINK(heap, &usedheaps);
-#ifdef MEMORY_MANAGER_STATS
-        // Add heap to fullheaps list
+
+        // Add heap to singly-linked fullheaps list
         heap->next = fullheaps;
         fullheaps = heap;
-#endif /* MEMORY_MANAGER_STATS */
     }
 
     return _init_pool(newpool, &usedpools[BSTOI(size)], size);
@@ -460,6 +459,31 @@ void *memory_manager_alloc(size_t size)
 }
 
 
+/* Walk through all heaps in usedheaps and fullheaps to find the heap containing
+ * the provided pointer, and return a pointer to the heap. If none of our heaps
+ * contain the pointer, it must have been allocated using system malloc(),
+ * so return NULL */
+static memheap_t *_find_heap_for_pointer(void *data)
+{
+    const unsigned num_heaplists = 2u;
+    memheap_t *heaplists[] = {usedheaps.head, fullheaps};
+
+    for (unsigned i = 0; i < num_heaplists; i++)
+    {
+        // Check if ptr is from one of the heaps in this list
+        for (memheap_t *heap = heaplists[i]; NULL != heap; heap = heap->next)
+        {
+            if (POINTER_IN_HEAP(heap, data))
+            {
+                return heap;
+            }
+        }
+    }
+
+    return NULL;
+}
+
+
 /**
  * @see memory_manager_api.h
  */
@@ -471,28 +495,27 @@ void *memory_manager_realloc(void *data, size_t size)
     }
 
     void * ret = NULL;
+    memheap_t *heap;
 
-    // Check if source ptr is from one of our heaps
-    for (memheap_t *heap = usedheaps.head; NULL != heap; heap = heap->next)
+    if ((heap = _find_heap_for_pointer(data)) != NULL)
     {
-        if (POINTER_IN_HEAP(heap, data))
+        // Align down to get mempool_t pointer for this block
+        mempool_t *pool = GET_POOL_POINTER(heap, data);
+
+        // Allocate block for new size
+        ret = memory_manager_alloc(size);
+        if (NULL == ret)
         {
-            // Align down to get mempool_t pointer for this block
-            mempool_t *pool = GET_POOL_POINTER(heap, data);
-
-            // Allocate block for new size
-            ret = memory_manager_alloc(size);
-            if (NULL != ret)
-            {
-                // Copy data to new block
-                memcpy(ret, data, MIN(size, pool->block_size));
-            }
-
-            // Free old data
-            memory_manager_free(data);
-
-            return ret;
+            return NULL;
         }
+
+        // Copy data to new block
+        memcpy(ret, data, MIN(size, pool->block_size));
+
+        // Free old data
+        memory_manager_free(data);
+
+        return ret;
     }
 
     // Source pointer was allocated with system malloc()
@@ -524,24 +547,23 @@ void *memory_manager_realloc(void *data, size_t size)
  */
 void memory_manager_free(void *data)
 {
-    for (memheap_t *heap = usedheaps.head; NULL != heap; heap = heap->next)
+    memheap_t *heap;
+
+    if ((heap = _find_heap_for_pointer(data)) != NULL)
     {
-        if (POINTER_IN_HEAP(heap, data))
-        {
-            // Align down to get mempool_t pointer for this block
-            mempool_t *pool = GET_POOL_POINTER(heap, data);
+        // Align down to get mempool_t pointer for this block
+        mempool_t *pool = GET_POOL_POINTER(heap, data);
 
-            unsigned index = BSTOI(pool->block_size);
-            uint8_t **head = &freeblocks[index];
+        unsigned index = BSTOI(pool->block_size);
+        uint8_t **head = &freeblocks[index];
 
-            // Freed block now contains pointer to next free block
-            *((uint8_t **) data) = *head;
+        // Freed block now contains pointer to next free block
+        *((uint8_t **) data) = *head;
 
-            // Freed block is now the head of the free list for this pool
-            *head = data;
+        // Freed block is now the head of the free list for this pool
+        *head = data;
 
-            return;
-        }
+        return;
     }
 
     // Pointer is not from any of our memheap_t objects-- free with system free()
