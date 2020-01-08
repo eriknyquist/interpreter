@@ -376,44 +376,6 @@ static uint8_t *_find_new_pool(size_t size)
 }
 
 
-/* Find an available block and return a pointer to it. If no available blocks
- * in the requested size class can be found in existing memheap_t objects, this
- * function will allocate a new memheap_t object to satisfy the request */
-static uint8_t *_small_alloc(size_t size)
-{
-    uint8_t *ret = NULL;
-    size = ROUND_UP(size, ALIGNMENT_BYTES);
-
-    // Try to find a block in in a pool that's already in use
-    if ((ret = _find_block_in_used_pool(size)) != NULL)
-    {
-        return ret;
-    }
-
-    // Try to carve out a new pool in existing heaps
-    if ((usedheaps.head) && ((ret = _find_new_pool(size)) != NULL))
-    {
-        return ret;
-    }
-
-    // Couldn't satisfy request with existing heaps, allocate new heap
-    memheap_t *newheap;
-
-    if ((newheap = malloc(sizeof(memheap_t))) == NULL)
-    {
-        return NULL;
-    }
-
-    // Link new memheap_t to end of heap list
-    LIST_LINK_TAIL(newheap, &usedheaps);
-
-    // Carve out new pool and return pointer to first block
-    newheap->nextoffset = POOL_SIZE_BYTES;
-    mempool_t *newpool = (mempool_t *) newheap->heap;
-    return _init_pool(newpool, &usedpools[BSTOI(size)], size);
-}
-
-
 /**
  * @see memory_manager_api.h
  */
@@ -453,6 +415,7 @@ memory_manager_status_e memory_manager_init(void)
     return MEMORY_MANAGER_OK;
 }
 
+
 /**
  * @see memory_manager_api.h
  */
@@ -464,8 +427,36 @@ void *memory_manager_alloc(size_t size)
         return malloc(size);
     }
 
-    // size requested is small enough to use our own small heap
-    return _small_alloc(size);
+    uint8_t *ret = NULL;
+    size = ROUND_UP(size, ALIGNMENT_BYTES);
+
+    // Try to find a block in in a pool that's already in use
+    if ((ret = _find_block_in_used_pool(size)) != NULL)
+    {
+        return ret;
+    }
+
+    // Try to carve out a new pool in existing heaps
+    if ((usedheaps.head) && ((ret = _find_new_pool(size)) != NULL))
+    {
+        return ret;
+    }
+
+    // Couldn't satisfy request with existing heaps, allocate new heap
+    memheap_t *newheap;
+
+    if ((newheap = malloc(sizeof(memheap_t))) == NULL)
+    {
+        return NULL;
+    }
+
+    // Link new memheap_t to end of heap list
+    LIST_LINK_TAIL(newheap, &usedheaps);
+
+    // Carve out new pool and return pointer to first block
+    newheap->nextoffset = POOL_SIZE_BYTES;
+    mempool_t *newpool = (mempool_t *) newheap->heap;
+    return _init_pool(newpool, &usedpools[BSTOI(size)], size);
 }
 
 
