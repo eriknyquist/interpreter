@@ -111,7 +111,10 @@ void memory_manager_free(void *data);
 typedef struct
 {
     // Total number of heap objects allocated
-    unsigned heap_count;
+    unsigned total_heap_count;
+
+    // Total number of heaps with no remaining pools to be carved off
+    unsigned full_heap_count;
 
     // Total number of pools that have been carved off, whether in use or full
     unsigned total_pool_count;

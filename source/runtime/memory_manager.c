@@ -67,22 +67,23 @@
  *  Heap management
  *  ---------------
  *
- *  Heaps are allocated as needed and maintained in a doubly-linked list. When
- *  a request cannot be satisfied by any existing heaps, a new heap is allocated
- *  and added to the end of this list (more about this in 'Allocation strategy').
+ *  Heaps are allocated as needed and maintained in a doubly-linked list
+ *  ("usedheaps" list). When the last pool is carved off a heap, it is removed
+ *  from the usedheaps list. When there are no remaining heaps in the usedheaps
+ *  list, a new heap is allocated and added to the end of this list (more about
+ *  this in 'Allocation strategy').
  *
  *
  *  Pool management
  *  ---------------
  *
  *  For each size class, we maintain a doubly-linked list of all pools in that
- *  size class (in all heaps) with remaining unused blocks-- that is, virgin
+ *  size class (across all heaps) with remaining unused blocks-- that is, virgin
  *  blocks that have never been touched ("usedpools" table).
  *  When the last unused block in a pool is carved out, it will be removed
- *  from the usedpools table. Once a pool is removed from the usedpool table, it
- *  will never be linked back in to the usedpool table. The only way we can use
- *  blocks in this pool after this point is through the freeblocks table, if
- *  any blocks in the pool are freed (more about this in the next section).
+ *  from the usedpools table. The only way we can use blocks in this pool after
+ *  this point is through the freeblocks table, if any blocks in the pool are
+ *  freed (more about this in the next section).
  *
  *
  *  Block management
@@ -107,9 +108,9 @@
  *  freeblocks for a freed block in the same size class that we can re-use. If
  *  this fails, we'll see if usedpools contains any pools in the same size class
  *  that we can carve a new block out of. If this also fails, we will try to
- *  carve out a new pool (of the originally requested block size), trying each
- *  heap until one succeeeds. Finally, if all of that is unsuccesful, we'll
- *  allocate a new heap object.
+ *  carve out a new pool (of the originally requested block size) out of the head
+ *  heap in usedheaps (if the head of usedheaps is NULL, we will allocate a
+ *  new heap).
  */
 
 #include <stdlib.h>
@@ -159,7 +160,56 @@
 /* Evaluates to 1 if the given pool is linked in the usedpools table, meaning the
  * pool has already been carved off a heap and has space available for allocations.
  * 0 otherwise */
-#define POOL_IN_USE(pool) ((NULL != pool->nextpool) || (NULL != pool->prevpool))
+#define POOL_IN_USE(pool) ((NULL != pool->next) || (NULL != pool->prev))
+
+
+/* Helper macro to unlink an item from doubly-linked list structures
+ * mempool_list_t and memheap_list_t */
+#define LIST_UNLINK(item, list)                     \
+{                                                   \
+    if (NULL != (item)->next)                       \
+    {                                               \
+        (item)->next->prev = (item)->prev;          \
+    }                                               \
+                                                    \
+    if (NULL != (item)->prev)                       \
+    {                                               \
+        (item)->prev->next = (item)->next;          \
+    }                                               \
+                                                    \
+    if ((item) == (list)->head)                     \
+    {                                               \
+        (list)->head = (item)->next;                \
+    }                                               \
+                                                    \
+    if ((item) == (list)->tail)                     \
+    {                                               \
+        (list)->tail = (item)->prev;                \
+    }                                               \
+                                                    \
+    (item)->next = NULL;                            \
+    (item)->prev = NULL;                            \
+}
+
+
+/* Helper macro to add a new tail item to doubly-linked list structures
+ * mempool_list_t and memheap_list_t */
+#define LIST_LINK_TAIL(item, list)                  \
+{                                                   \
+    if (NULL == (list)->tail)                       \
+    {                                               \
+        (list)->head = item;                        \
+        (item)->prev = NULL;                        \
+    }                                               \
+    else                                            \
+    {                                               \
+        (list)->tail->next = item;                  \
+        (item)->prev = (list)->tail;                \
+    }                                               \
+                                                    \
+    (list)->tail = item;                            \
+    (item)->next = NULL;                            \
+}                                                   \
 
 
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
@@ -174,8 +224,8 @@
  * POOL_SIZE_BYTES - ROUND_UP(sizeof(mempool_t), ALIGNMENT_BYTES) */
 typedef struct mempool
 {
-    struct mempool *nextpool; // pointer to next pool of this size class
-    struct mempool *prevpool; // pointer to previous pool of this size class
+    struct mempool *next; // pointer to next pool of this size class
+    struct mempool *prev; // pointer to previous pool of this size class
 
     /* offset in bytes of next unused block in this pool, from the
      * beginning of this struct */
@@ -189,8 +239,8 @@ typedef struct mempool
 /* Stucture representing a heap, containing a fixed number of pools */
 typedef struct memheap
 {
-    struct memheap *nextheap;
-    struct memheap *prevheap;
+    struct memheap *next;
+    struct memheap *prev;
 
     /* offset in bytes of next unused pool in this heap, from the
      * beginning of the "heap" member */
@@ -208,13 +258,19 @@ typedef struct
 } mempool_list_t;
 
 
-struct memheap *headheap = NULL;
-struct memheap *tailheap = NULL;
+/* Structure representing a doubly-linked list of memheap_t structures */
+typedef struct
+{
+    memheap_t *head;
+    memheap_t *tail;
+} memheap_list_t;
 
+
+/* Doubly-linked list of memheap_t objects with pools yet to be carved off */
+static memheap_list_t usedheaps;
 
 /* Table of doubly-linked lists of pools for each size class. Pools linked in
- * this table have blocks available to be allocated, and pools in each list
- * will be sorted in descending order of fullness percentage */
+ * this table have blocks yet to be carved off. */
 static mempool_list_t usedpools[NUM_SIZE_CLASSES];
 
 /* Table of singly linked lists of free blocks for each size class */
@@ -223,36 +279,20 @@ static uint8_t *freeblocks[NUM_SIZE_CLASSES];
 
 #ifdef MEMORY_MANAGER_STATS
 /* Table of singly-linked lists of pools for each size class. Pools linked in
- * this table have no block available for allocating. */
+ * this table have no remaining uncarved blocks. */
 static struct mempool *fullpools[NUM_SIZE_CLASSES];
+
+/* Singly-linked list of full heaps. Heaps linked in this list have no
+ * remaining uncarved pools. */
+static memheap_t *fullheaps = NULL;
 #endif /* MEMORY_MANAGER_STATS */
-
-
-// Add a mempool_t to a mempool_list_t structure as the new tail item
-static void _add_pool_list_tail(mempool_t *pool, mempool_list_t *list)
-{
-    if (NULL == list->tail)
-    {
-        // First pool of this size class in the usedpools table
-        list->head = pool;
-        pool->prevpool = NULL;
-    }
-    else
-    {
-        list->tail->nextpool = pool;
-        pool->prevpool = list->tail;
-    }
-
-    list->tail = pool;
-    pool->nextpool = NULL;
-}
 
 
 // Initialize a freshly carved-off pool, and return a pointer to the first block
 static uint8_t * _init_pool(mempool_t *pool, mempool_list_t *list, size_t size)
 {
     // Add this pool to the usedpools table, using provided pointer
-    _add_pool_list_tail(pool, list);
+    LIST_LINK_TAIL(pool, list);
 
     pool->block_size = size;
 
@@ -261,41 +301,6 @@ static uint8_t * _init_pool(mempool_t *pool, mempool_list_t *list, size_t size)
 
     // Return pointer to first block in new pool
     return ((uint8_t *) pool) + POOL_OVERHEAD_BYTES;
-}
-
-
-// Unlink the given pool from the given list
-static void _unlink_pool(mempool_t *pool, mempool_list_t *list)
-{
-    if (NULL != pool->nextpool)
-    {
-        pool->nextpool->prevpool = pool->prevpool;
-    }
-
-    if (NULL != pool->prevpool)
-    {
-        pool->prevpool->nextpool = pool->nextpool;
-    }
-
-    if (pool == list->head)
-    {
-        list->head = pool->nextpool;
-    }
-
-    if (pool == list->tail)
-    {
-        list->tail = pool->prevpool;
-    }
-
-#ifdef MEMORY_MANAGER_STATS
-    // Add pool to fullpools list
-    mempool_t **fullpool_head = &fullpools[BSTOI(pool->block_size)];
-    pool->nextpool = *fullpool_head;
-    *fullpool_head = pool;
-#else
-    pool->nextpool = NULL;
-#endif /* MEMORY_MANAGER_STATS */
-    pool->prevpool = NULL;
 }
 
 
@@ -337,7 +342,13 @@ static uint8_t *_find_block_in_used_pool(size_t size)
     if (POOL_BYTES_REMAINING(pool) < pool->block_size)
     {
         // No more space in this pool-- unlink from usedpools table
-        _unlink_pool(pool, list);
+        LIST_UNLINK(pool, list);
+#ifdef MEMORY_MANAGER_STATS
+        // Add pool to fullpools list
+        mempool_t **fullpool_head = &fullpools[BSTOI(pool->block_size)];
+        pool->next = *fullpool_head;
+        *fullpool_head = pool;
+#endif /* MEMORY_MANAGER_STATS */
     }
 
     return ret;
@@ -346,19 +357,22 @@ static uint8_t *_find_block_in_used_pool(size_t size)
 
 static uint8_t *_find_new_pool(size_t size)
 {
-    for (memheap_t *heap = headheap; NULL != heap; heap = heap->nextheap)
-    {
-        if (HEAP_BYTES_REMAINING(heap) < POOL_SIZE_BYTES)
-        {
-            continue;
-        }
+    memheap_t *heap = usedheaps.head;
+    mempool_t *newpool = (mempool_t *) (heap->heap + heap->nextoffset);
+    heap->nextoffset += POOL_SIZE_BYTES;
 
-        mempool_t *newpool = (mempool_t *) (heap->heap + heap->nextoffset);
-        heap->nextoffset += POOL_SIZE_BYTES;
-        return _init_pool(newpool, &usedpools[BSTOI(size)], size);
+    if (HEAP_BYTES_REMAINING(heap) < POOL_SIZE_BYTES)
+    {
+        // Unlink this heap from usedheaps list
+        LIST_UNLINK(heap, &usedheaps);
+#ifdef MEMORY_MANAGER_STATS
+        // Add heap to fullheaps list
+        heap->next = fullheaps;
+        fullheaps = heap;
+#endif /* MEMORY_MANAGER_STATS */
     }
 
-    return NULL;
+    return _init_pool(newpool, &usedpools[BSTOI(size)], size);
 }
 
 
@@ -377,7 +391,7 @@ static uint8_t *_small_alloc(size_t size)
     }
 
     // Try to carve out a new pool in existing heaps
-    if ((ret = _find_new_pool(size)) != NULL)
+    if ((usedheaps.head) && ((ret = _find_new_pool(size)) != NULL))
     {
         return ret;
     }
@@ -391,14 +405,7 @@ static uint8_t *_small_alloc(size_t size)
     }
 
     // Link new memheap_t to end of heap list
-    if (NULL != tailheap)
-    {
-        tailheap->nextheap = newheap;
-    }
-
-    newheap->prevheap = tailheap;
-    newheap->nextheap = NULL;
-    tailheap = newheap;
+    LIST_LINK_TAIL(newheap, &usedheaps);
 
     // Carve out new pool and return pointer to first block
     newheap->nextoffset = POOL_SIZE_BYTES;
@@ -412,17 +419,13 @@ static uint8_t *_small_alloc(size_t size)
  */
 memory_manager_status_e memory_manager_init(void)
 {
-    if (NULL != headheap)
+    if (NULL != usedheaps.head)
     {
         return MEMORY_MANAGER_ALREADY_INIT;
     }
 
-    if ((headheap = malloc(sizeof(memheap_t))) == NULL)
-    {
-        return MEMORY_MANAGER_OUT_OF_MEMORY;
-    }
-
-    tailheap = headheap;
+    // Zero out used heaps list structure
+    memset(&usedheaps, 0, sizeof(usedheaps));
 
     // Zero out used pool list table
     memset(usedpools, 0, sizeof(usedpools));
@@ -435,10 +438,17 @@ memory_manager_status_e memory_manager_init(void)
     memset(fullpools, 0, sizeof(fullpools));
 #endif /* MEMORY_MANAGER_STATS */
 
+    if ((usedheaps.head = malloc(sizeof(memheap_t))) == NULL)
+    {
+        return MEMORY_MANAGER_OUT_OF_MEMORY;
+    }
+
+    usedheaps.tail = usedheaps.head;
+
     // Set up initial values for newly allocated heap object
-    headheap->nextheap = NULL;
-    headheap->prevheap = NULL;
-    headheap->nextoffset = 0;
+    usedheaps.head->next = NULL;
+    usedheaps.head->prev = NULL;
+    usedheaps.head->nextoffset = 0;
 
     return MEMORY_MANAGER_OK;
 }
@@ -472,7 +482,7 @@ void *memory_manager_realloc(void *data, size_t size)
     void * ret = NULL;
 
     // Check if source ptr is from one of our heaps
-    for (memheap_t *heap = headheap; NULL != heap; heap = heap->nextheap)
+    for (memheap_t *heap = usedheaps.head; NULL != heap; heap = heap->next)
     {
         if (POINTER_IN_HEAP(heap, data))
         {
@@ -523,7 +533,7 @@ void *memory_manager_realloc(void *data, size_t size)
  */
 void memory_manager_free(void *data)
 {
-    for (memheap_t *heap = headheap; NULL != heap; heap = heap->nextheap)
+    for (memheap_t *heap = usedheaps.head; NULL != heap; heap = heap->next)
     {
         if (POINTER_IN_HEAP(heap, data))
         {
@@ -556,7 +566,7 @@ void memory_manager_free(void *data)
  */
 memory_manager_status_e memory_manager_stats(mem_stats_t *stats)
 {
-    if (NULL == headheap)
+    if (NULL == usedheaps.head)
     {
         return MEMORY_MANAGER_NOT_INIT;
     }
@@ -572,18 +582,27 @@ memory_manager_status_e memory_manager_stats(mem_stats_t *stats)
     // Get heap_count
     unsigned heap_count = 0u;
 
-    for (memheap_t *heap = headheap; NULL != heap; heap = heap->nextheap)
+    for (memheap_t *heap = usedheaps.head; NULL != heap; heap = heap->next)
     {
         heap_count++;
     }
 
-    stats->heap_count = heap_count;
+    // Get full_heap_count
+    unsigned full_heap_count = 0u;
+
+    for (memheap_t *heap = fullheaps; NULL != heap; heap = heap->next)
+    {
+        full_heap_count++;
+    }
+
+    stats->total_heap_count = heap_count + full_heap_count;
+    stats->full_heap_count = full_heap_count;
 
     // Get full_pool_count values
     for (unsigned i = 0; i < NUM_SIZE_CLASSES; i++)
     {
         unsigned full_count = 0u;
-        for (mempool_t *curr = fullpools[i]; NULL != curr; curr = curr->nextpool)
+        for (mempool_t *curr = fullpools[i]; NULL != curr; curr = curr->next)
         {
             full_count++;
             total_pool_count++;
@@ -596,7 +615,7 @@ memory_manager_status_e memory_manager_stats(mem_stats_t *stats)
     for (unsigned i = 0; i < NUM_SIZE_CLASSES; i++)
     {
         unsigned used_count = 0u;
-        for (mempool_t *curr = usedpools[i].head; NULL != curr; curr = curr->nextpool)
+        for (mempool_t *curr = usedpools[i].head; NULL != curr; curr = curr->next)
         {
             used_count++;
             total_pool_count++;
@@ -633,7 +652,8 @@ memory_manager_status_e memory_manager_print_stats(mem_stats_t *stats)
         return MEMORY_MANAGER_INVALID_PARAM;
     }
 
-    printf("Total heap count: %d\n", stats->heap_count);
+    printf("Total heap count: %d\n", stats->total_heap_count);
+    printf("Full heap count: %d\n", stats->full_heap_count);
     printf("Total pool count: %d\n\n", stats->total_pool_count);
 
     printf("---- Used pools ----\n\n");
@@ -694,17 +714,17 @@ memory_manager_status_e memory_manager_destroy(void)
         return err;
     }
 #endif /* MEMORY_MANAGER_STATS */
-    memheap_t *heap = headheap;
+    memheap_t *heap = usedheaps.head;
 
     while (NULL != heap)
     {
-        struct memheap *nextheap = heap->nextheap;
+        struct memheap *next = heap->next;
         free(heap);
-        heap = nextheap;
+        heap = next;
     }
 
-    headheap = NULL;
-    tailheap = NULL;
+    usedheaps.head = NULL;
+    usedheaps.tail = NULL;
 
     return MEMORY_MANAGER_OK;
 }
