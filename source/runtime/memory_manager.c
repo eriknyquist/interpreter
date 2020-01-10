@@ -288,6 +288,14 @@ static struct mempool *fullpools[NUM_SIZE_CLASSES];
 static memheap_t *fullheaps = NULL;
 
 
+/* A list of lists of heaps. All lists containing allocated memheap_t objects
+ * of any state should be referenced here-- we'll used this list to 1) make sure
+ * we can find the right heap for pointers passed to memory_manager_free, and 2)
+ * make sure we can free all allocated memheap_t objects in memory_manager_destroy */
+#define NUM_HEAPLISTS (2u)
+static memheap_t **heaplists[NUM_HEAPLISTS] = {&usedheaps.head, &fullheaps};
+
+
 // Initialize a freshly carved-off pool, and return a pointer to the first block
 static uint8_t * _init_pool(mempool_t *pool, mempool_list_t *list, size_t size)
 {
@@ -375,6 +383,28 @@ static uint8_t *_find_new_pool(size_t size)
 }
 
 
+/* Walk through all heaps in usedheaps and fullheaps to find the heap containing
+ * the provided pointer, and return a pointer to the heap. If none of our heaps
+ * contain the pointer, it must have been allocated using system malloc(),
+ * so return NULL */
+static memheap_t *_find_heap_for_pointer(void *data)
+{
+    for (unsigned i = 0; i < NUM_HEAPLISTS; i++)
+    {
+        // Check if ptr is from one of the heaps in this list
+        for (memheap_t *heap = *(heaplists[i]); NULL != heap; heap = heap->next)
+        {
+            if (POINTER_IN_HEAP(heap, data))
+            {
+                return heap;
+            }
+        }
+    }
+
+    return NULL;
+}
+
+
 /**
  * @see memory_manager_api.h
  */
@@ -456,31 +486,6 @@ void *memory_manager_alloc(size_t size)
     newheap->nextoffset = POOL_SIZE_BYTES;
     mempool_t *newpool = (mempool_t *) newheap->heap;
     return _init_pool(newpool, &usedpools[BSTOI(size)], size);
-}
-
-
-/* Walk through all heaps in usedheaps and fullheaps to find the heap containing
- * the provided pointer, and return a pointer to the heap. If none of our heaps
- * contain the pointer, it must have been allocated using system malloc(),
- * so return NULL */
-static memheap_t *_find_heap_for_pointer(void *data)
-{
-    const unsigned num_heaplists = 2u;
-    memheap_t *heaplists[] = {usedheaps.head, fullheaps};
-
-    for (unsigned i = 0; i < num_heaplists; i++)
-    {
-        // Check if ptr is from one of the heaps in this list
-        for (memheap_t *heap = heaplists[i]; NULL != heap; heap = heap->next)
-        {
-            if (POINTER_IN_HEAP(heap, data))
-            {
-                return heap;
-            }
-        }
-    }
-
-    return NULL;
 }
 
 
@@ -727,17 +732,21 @@ memory_manager_status_e memory_manager_destroy(void)
         return err;
     }
 #endif /* MEMORY_MANAGER_STATS */
-    memheap_t *heap = usedheaps.head;
 
-    while (NULL != heap)
+    for (unsigned i = 0; i < NUM_HEAPLISTS; i++)
     {
-        struct memheap *next = heap->next;
-        free(heap);
-        heap = next;
+        memheap_t *heap = *(heaplists[i]);
+        while (NULL != heap)
+        {
+            struct memheap *next = heap->next;
+            free(heap);
+            heap = next;
+        }
     }
 
     usedheaps.head = NULL;
     usedheaps.tail = NULL;
+    fullheaps = NULL;
 
     return MEMORY_MANAGER_OK;
 }
