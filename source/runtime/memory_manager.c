@@ -134,13 +134,6 @@
             ROUND_DOWN(((uint8_t *) data) - heap->heap, POOL_SIZE_BYTES)))
 
 
-// Maximum usable block offset from the start of a pool
-#define MAX_BLOCK_OFFSET (POOL_SIZE_BYTES)
-
-// Maximum usable pool offset from the start of a memheap_t's "heap" member
-#define MAX_POOL_OFFSET (HEAP_SIZE_BYTES)
-
-
 // Calculate number of bytes remaining to be carved off in a pool
 #define POOL_BYTES_REMAINING(pool) (POOL_SIZE_BYTES - pool->nextoffset)
 
@@ -157,24 +150,13 @@
                                     (((uint8_t *) ptr) < (heap->heap + HEAP_SIZE_BYTES)))
 
 
-/* Evaluates to 1 if the given pool is linked in the usedpools table, meaning the
- * pool has already been carved off a heap and has space available for allocations.
- * 0 otherwise */
-#define POOL_IN_USE(pool) ((NULL != pool->next) || (NULL != pool->prev))
-
-
-/* Helper macro to unlink an item from doubly-linked list structures
+/* Helper macro to unlink the head item from doubly-linked list structures
  * mempool_list_t and memheap_list_t */
-#define LIST_UNLINK(item, list)                     \
+#define LIST_UNLINK_HEAD(item, list)                \
 {                                                   \
     if (NULL != (item)->next)                       \
     {                                               \
         (item)->next->prev = (item)->prev;          \
-    }                                               \
-                                                    \
-    if (NULL != (item)->prev)                       \
-    {                                               \
-        (item)->prev->next = (item)->next;          \
     }                                               \
                                                     \
     if ((item) == (list)->head)                     \
@@ -350,7 +332,7 @@ static uint8_t *_find_block_in_used_pool(size_t size)
     if (POOL_BYTES_REMAINING(pool) < pool->block_size)
     {
         // No more space in this pool-- unlink from usedpools table
-        LIST_UNLINK(pool, list);
+        LIST_UNLINK_HEAD(pool, list);
 #ifdef MEMORY_MANAGER_STATS
         // Add pool to fullpools list
         mempool_t **fullpool_head = &fullpools[BSTOI(pool->block_size)];
@@ -360,26 +342,6 @@ static uint8_t *_find_block_in_used_pool(size_t size)
     }
 
     return ret;
-}
-
-
-static uint8_t *_find_new_pool(size_t size)
-{
-    memheap_t *heap = usedheaps.head;
-    mempool_t *newpool = (mempool_t *) (heap->heap + heap->nextoffset);
-    heap->nextoffset += POOL_SIZE_BYTES;
-
-    if (HEAP_BYTES_REMAINING(heap) < POOL_SIZE_BYTES)
-    {
-        // Unlink this heap from doubly-linked usedheaps list
-        LIST_UNLINK(heap, &usedheaps);
-
-        // Add heap to singly-linked fullheaps list
-        heap->next = fullheaps;
-        fullheaps = heap;
-    }
-
-    return _init_pool(newpool, &usedpools[BSTOI(size)], size);
 }
 
 
@@ -465,13 +427,27 @@ void *memory_manager_alloc(size_t size)
         return ret;
     }
 
-    // Try to carve out a new pool in existing heaps
-    if ((usedheaps.head) && ((ret = _find_new_pool(size)) != NULL))
+    // Carve out a new pool in head of usedheaps list, if there is one
+    if (NULL != usedheaps.head)
     {
-        return ret;
+        memheap_t *heap = usedheaps.head;
+        mempool_t *newpool = (mempool_t *) (heap->heap + heap->nextoffset);
+        heap->nextoffset += POOL_SIZE_BYTES;
+
+        if (HEAP_BYTES_REMAINING(heap) < POOL_SIZE_BYTES)
+        {
+            // Unlink this heap from doubly-linked usedheaps list
+            LIST_UNLINK_HEAD(heap, &usedheaps);
+
+            // Add heap to singly-linked fullheaps list
+            heap->next = fullheaps;
+            fullheaps = heap;
+        }
+
+        return _init_pool(newpool, &usedpools[BSTOI(size)], size);
     }
 
-    // Couldn't satisfy request with existing heaps, allocate new heap
+    // Head of usedheaps is NULL, allocate new heap
     memheap_t *newheap;
 
     if ((newheap = malloc(sizeof(memheap_t))) == NULL)
