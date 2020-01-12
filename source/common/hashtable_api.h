@@ -52,6 +52,18 @@ typedef struct
 
 
 /**
+ * Structure representing a single entry in the hashtable
+ */
+typedef struct
+{
+    char *key;                  // String key
+    uint32_t hash;              // Hash of string key
+    uint8_t status;             // Entry status; must be one of hashtable_entry_status_e
+    char data[];                // Pointer to data section
+} hashtable_entry_t;
+
+
+/**
  * Structure representing a hashtable
  */
 typedef struct
@@ -59,6 +71,7 @@ typedef struct
     size_t data_size_bytes;              // Data size of a single table entry
     hashtable_hash_func_t hash_func;     // Hash generation function
     hashtable_strcmp_func_t strcmp_func; // String comparison function
+    hashtable_entry_t *last_written;     // Last entry written with hashtable_put
     size_t size;                         // Total number of slots in the table
     size_t used;                         // Number of slots used in the table
     void *table;                         // Pointer to table data
@@ -88,7 +101,9 @@ hashtable_status_e hashtable_destroy(hashtable_t *table);
 
 
 /**
- * Add an entry to a hashtable.
+ * Add an entry to a hashtable. Note that the pointer to the string key ('key')
+ * is copied as-is into the hashtable entry, so the caller should ensure that
+ * space for the string key remains allocated while the hashtable is in use.
  *
  * @param table  Pointer to hashtable instance
  * @param key    Pointer to NULL-terminated string key used to access the entry.

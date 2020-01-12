@@ -9,9 +9,6 @@
 // Size allocated for a new table, in number of entries
 #define INITIAL_TABLE_SIZE (64)
 
-// Maximum string size
-#define MAX_STRING_SIZE (64)
-
 // Calculates the size of a single table entry in bytes
 #define ENTRY_SIZE_BYTES(table) \
     ((table)->data_size_bytes + sizeof(hashtable_entry_t))
@@ -36,23 +33,12 @@
  */
 typedef enum
 {
+    /* We're depending on 0 meaning UNUSED, so that we can just memset the whole
+     * table to 0 when initializing a new table */
     ENTRY_STATUS_UNUSED = 0,
     ENTRY_STATUS_USED,
     ENTRY_STATUS_DELETED
 } hashtable_entry_status_e;
-
-
-
-/**
- * Structure representing a single entry in the hashtable
- */
-typedef struct
-{
-    char key[MAX_STRING_SIZE];  // String key
-    uint32_t hash;              // Hash of string key
-    uint8_t status;             // Entry status; must be one of hashtable_entry_status_e
-    char data[];                // Pointer to data section
-} hashtable_entry_t;
 
 
 static uint8_t _default_strcmp_func(char * str1, char * str2)
@@ -71,11 +57,8 @@ static uint8_t _default_strcmp_func(char * str1, char * str2)
 
 static void _init_new_table(hashtable_t *table)
 {
-    for (size_t i = 0; i < table->size; i++)
-    {
-        hashtable_entry_t *entry = INDEX_TABLE(table, i);
-        entry->status = (uint8_t) ENTRY_STATUS_UNUSED;
-    }
+    table->last_written = NULL;
+    memset(table->table, 0, ENTRY_SIZE_BYTES(table) * table->size);
 }
 
 
@@ -219,14 +202,14 @@ hashtable_status_e hashtable_create(hashtable_t *table, hashtable_config_t *cfg)
     }
 
     // Allocate some initial space
-    table->table = malloc(ENTRY_SIZE_BYTES(table) * INITIAL_TABLE_SIZE);
+    table->table = memory_manager_alloc(ENTRY_SIZE_BYTES(table) * INITIAL_TABLE_SIZE);
     if (NULL == table->table)
     {
         return HASHTABLE_MEMORY_ERROR;
     }
 
-    _init_new_table(table);
     table->size = INITIAL_TABLE_SIZE;
+    _init_new_table(table);
 
     return HASHTABLE_OK;
 }
@@ -273,25 +256,19 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data)
 
     // Calculate hash and find corresponding entry
     uint32_t hash = table->hash_func(key, strlen(key));
-    hashtable_entry_t *entry = _find_empty_slot(table, key, hash);
-    if (NULL == entry)
+    table->last_written = _find_empty_slot(table, key, hash);
+    if (NULL == table->last_written)
     {
         return HASHTABLE_KEY_ALREADY_EXISTS;
     }
 
     // Populate entry
-    (void) memcpy(entry->data, data, table->data_size_bytes);
+    (void) memcpy(table->last_written->data, data, table->data_size_bytes);
 
-    int i;
-    for (i = 0; key[i] && (i < (MAX_STRING_SIZE - 1)); i++)
-    {
-        entry->key[i] = key[i];
-    }
 
-    entry->key[i] = '\0';
-
-    entry->hash = hash;
-    entry->status = (uint8_t) ENTRY_STATUS_USED;
+    table->last_written->key = key;
+    table->last_written->hash = hash;
+    table->last_written->status = (uint8_t) ENTRY_STATUS_USED;
     table->used += 1u;
 
     return HASHTABLE_OK;
