@@ -52,6 +52,49 @@ string_cache_status_e string_cache_destroy(string_cache_t *cache)
 /**
  * @see string_cache_api.h
  */
+string_cache_status_e string_cache_stats(string_cache_t *cache,
+                                         string_cache_stats_t *stats)
+{
+    if ((NULL == cache) || (NULL == stats))
+    {
+        return STRING_CACHE_INVALID_PARAM;
+    }
+
+    hashtable_stats_t table_stats;
+
+    if (HASHTABLE_OK != hashtable_stats(&cache->string_table, &table_stats))
+    {
+        return STRING_CACHE_ERROR;
+    }
+
+    stats->string_count = table_stats.entry_count;
+    stats->table_size_bytes = table_stats.size_bytes;
+
+    // Initialize total string bytes count
+    stats->total_string_bytes = 0u;
+
+    hashtable_status_e err;
+    byte_string_t *string;
+
+    // Iterate over all entries in the string cache to get the total byte count
+    do {
+        err = hashtable_next(&cache->string_table, (void **) &string);
+        if ((HASHTABLE_OK != err) && (HASHTABLE_LAST_ENTRY != err))
+        {
+            return STRING_CACHE_ERROR;
+        }
+
+        stats->total_string_bytes += string->total_bytes;
+    }
+    while (HASHTABLE_LAST_ENTRY != err);
+
+    return STRING_CACHE_OK;
+}
+
+
+/**
+ * @see string_cache_api.h
+ */
 string_cache_status_e string_cache_add(string_cache_t *cache,
                                        char *string_to_add,
                                        byte_string_t **cached_string)
@@ -84,7 +127,7 @@ string_cache_status_e string_cache_add(string_cache_t *cache,
         {
             return STRING_CACHE_ERROR;
         }
-    
+
         // Add byte string structure to hashtable, use string contents as key
         err = hashtable_put(&cache->string_table, byte_string.bytes,
                             &byte_string);

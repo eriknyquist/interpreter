@@ -10,7 +10,7 @@
 
 
 /* There are 65 size classes: 0 to 512 inclusive, in increments of 8. e.g.
- * 0, 8, 16, 24, ... and so on. */
+ * 0, 8, 16, 24, ... and so on. This value needs to be a power of 2. */
 #define ALIGNMENT_BYTES (8)
 
 
