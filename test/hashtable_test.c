@@ -6,7 +6,8 @@
 #include <inttypes.h>
 
 #include "memory_manager_api.h"
-#include "hashtable_api.h"
+#include "hashtables_api.h"
+#include "string_cache_api.h"
 
 
 #define CHAR_LOWER_BOUND (0x20) // Start of printable ASCII chars
@@ -46,6 +47,8 @@
 #define TIME_HASHTABLE_PUT(op, errval) TIME_HASHTABLE_OP(highest_put_ms, lowest_put_ms, op, errval)
 #define TIME_HASHTABLE_GET(op, errval) TIME_HASHTABLE_OP(highest_get_ms, lowest_get_ms, op, errval)
 
+static string_cache_t stringcache;
+
 
 static uint64_t lowest_get_ms = UINT64_MAX;
 static uint64_t highest_get_ms = UINT64_MAX;
@@ -57,7 +60,7 @@ static int putcount, getcount, deletecount;
 
 typedef struct
 {
-    char key[MAX_STRING_SIZE + 1];
+    char *key;
     int data;
     uint8_t deleted;
 } test_data_t;
@@ -77,18 +80,33 @@ static uint32_t _timestamp_ms(void)
 
 static void _populate_test_data_entry(int count)
 {
+    byte_string_t *string;
+    string_cache_status_e err;
+    char buf[MAX_STRING_SIZE + 1];
+
     test_data_t *entry = test_hashtable_entries + count;
 
-    int size = RANDRANGE(MIN_STRING_SIZE, MAX_STRING_SIZE);
+    do {
+        int size = RANDRANGE(MIN_STRING_SIZE, MAX_STRING_SIZE);
 
-    for (int i = 0; i < size; i++)
+        for (int i = 0; i < size; i++)
+        {
+            buf[i] = RANDRANGE(CHAR_LOWER_BOUND, CHAR_UPPER_BOUND);
+        }
+
+        buf[size] = '\0';
+
+        err = string_cache_add(&stringcache, buf, &string);
+    }
+    while(STRING_CACHE_OK != err);
+
+    if ((STRING_CACHE_ALREADY_CACHED != err) & (STRING_CACHE_OK != err))
     {
-        char c = RANDRANGE(CHAR_LOWER_BOUND, CHAR_UPPER_BOUND);
-        entry->key[i] = c;
+        printf("Failed to add to string cache, status %d\n", err);
+        return;
     }
 
-    entry->key[size] = '\0';
-
+    entry->key = string->bytes;
     entry->data = rand();
     entry->deleted = 0u;
 }
@@ -162,17 +180,12 @@ static void _generate_test_data(void)
 static int _run_test(void)
 {
     hashtable_t hashtable;
-    hashtable_config_t cfg;
     hashtable_status_e err;
 
     printf("\nGenerating test data...\n\n");
     _generate_test_data();
 
-    cfg.data_size_bytes = sizeof(int);
-    cfg.hash_func = NULL;
-    cfg.strcmp_func = NULL;
-
-    err = hashtable_create(&hashtable, &cfg);
+    err = create_pointer_comparison_hashtable(&hashtable, sizeof(int));
     if (HASHTABLE_OK != err)
     {
         printf("hashtable_create failed, status %d\n", err);
@@ -251,6 +264,13 @@ int main(int argc, char *argv[])
         return mem_err;
     }
 
+    string_cache_status_e cache_err = string_cache_create(&stringcache);
+    if (STRING_CACHE_OK != cache_err)
+    {
+        printf("Failed to initialize string cache, status %d\n", cache_err);
+        return cache_err;
+    }
+
     srand((unsigned) time(NULL));
     printf("\n%s\n", _run_test() ? "Failure occurred" : "All OK");
 
@@ -261,6 +281,13 @@ int main(int argc, char *argv[])
     printf("highest put time: %" PRIu64 "ms\n", highest_put_ms);
     printf("lowest get time: %" PRIu64 "ms\n", lowest_get_ms);
     printf("highest get time: %" PRIu64 "ms\n\n", highest_get_ms);
+
+    cache_err = string_cache_destroy(&stringcache);
+    if (STRING_CACHE_OK != cache_err)
+    {
+        printf("Failed to destroy string cache, status %d\n", cache_err);
+        return cache_err;
+    }
 
     mem_err = memory_manager_destroy();
     if (MEMORY_MANAGER_OK != mem_err)
