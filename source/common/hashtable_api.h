@@ -4,8 +4,15 @@
 #include <stdint.h>
 #include "ulist_api.h"
 
-#define NUM_TABLE_SLOTS (128)
-#define LIST_ITEMS_PER_NODE (10u)
+/* -- Beginning of tunable settings section -- */
+
+// Size allocated for a new table, in number of entries
+#define INITIAL_TABLE_SIZE (64)
+
+// If the table load percentage reaches this value or higher, we will resize
+#define MAX_TABLE_LOAD_PERCENTAGE   (70)
+
+/* -- End of tunable settings section -- */
 
 
 /**
@@ -13,7 +20,8 @@
  */
 typedef enum
 {
-    HASHTABLE_OK,
+    HASHTABLE_OK,                  // Operation completed successfully
+    HASHTABLE_LAST_ENTRY,          // Returned by hashtable_next on last entry
     HASHTABLE_NO_ITEM,             // No item matching the provided key
     HASHTABLE_KEY_TOO_LONG,        // Max. key length of 256 bytes exceeded
     HASHTABLE_KEY_ALREADY_EXISTS,  // Item with the provided key already exists
@@ -52,6 +60,17 @@ typedef struct
 
 
 /**
+ * Structure representing runtime information about a hashtable_t instance
+ */
+typedef struct
+{
+    size_t entry_count;              // Number of entries in the hashtable
+    size_t size_bytes;               // Total size allocated for table in bytes
+    unsigned load_factor_percent;    // Load factor as a percentage (0 == empty)
+} hashtable_stats_t;
+
+
+/**
  * Structure representing a single entry in the hashtable
  */
 typedef struct
@@ -74,6 +93,7 @@ typedef struct
     hashtable_entry_t *last_written;     // Last entry written with hashtable_put
     size_t size;                         // Total number of slots in the table
     size_t used;                         // Number of slots used in the table
+    size_t index;                        // Entry index used by hashtable_next
     void *table;                         // Pointer to table data
 } hashtable_t;
 
@@ -124,6 +144,36 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data);
  * @return          HASHTABLE_OK if successful, #hastable_status_e otherwise
  */
 hashtable_status_e hashtable_get(hashtable_t *table, char *key, void **data_ptr);
+
+
+/**
+ * Gets the next entry in the hashtable. Allows for each entry in the hashtable
+ * to be retrieved, by calling this function until HASHTABLE_LAST_ENTRY is
+ * returned. When HASHTABLE_LAST_ENTRY is returned, the entry provided is the
+ * last entry in the provided table, and the next call to hashtable_next will
+ * wrap back around to the first entry. Note that entries are returned in the
+ * order that they occur in memory reserved for the hashtable (so, unrelated to
+ * the order in which they were added to the table).
+ *
+ * @param   table     Pointer to hashtable_t instance to get next entry from
+ * @param   data_ptr  Pointer to location to store pointer to next entry
+ *
+ * @return  HASHTABLE_OK (or HASHTABLE_LAST_ENTRY if provided entry is the last
+ *          one) if next entry was fetched successfully.
+ */
+hashtable_status_e hashtable_next(hashtable_t *table, void **data_ptr);
+
+
+/**
+ * Return usage information about the given hashtable (see hashtable_stats_t
+ * struct definition)
+ *
+ * @param   table   Pointer to hashtable_t instance to return information about
+ * @param   stats   Pointer to hashtable_stats_t structure to populate
+ *
+ * @return  HASHTABLE_OK if usage information was gathered successfully
+ */
+hashtable_status_e hashtable_stats(hashtable_t *table, hashtable_stats_t *stats);
 
 
 /**

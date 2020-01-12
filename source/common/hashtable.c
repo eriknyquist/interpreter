@@ -6,23 +6,14 @@
 #include "fnv_1a_api.h"
 
 
-// Size allocated for a new table, in number of entries
-#define INITIAL_TABLE_SIZE (64)
-
 // Calculates the size of a single table entry in bytes
 #define ENTRY_SIZE_BYTES(table) \
     ((table)->data_size_bytes + sizeof(hashtable_entry_t))
-
 
 // Gets a pointer to the entry at the provided index
 #define INDEX_TABLE(table, index) \
     (hashtable_entry_t *) \
     (((uint8_t *) table->table) + (ENTRY_SIZE_BYTES(table) * (index)))
-
-
-// If the table load percentage reaches this value or higher, we will resize
-#define MAX_TABLE_LOAD_PERCENTAGE   (70)
-
 
 // Calculate the table load percentage
 #define LOAD_PERCENTAGE(table) (((table)->used * 100u) / (table)->size)
@@ -38,7 +29,7 @@ typedef enum
     ENTRY_STATUS_UNUSED = 0,
     ENTRY_STATUS_USED,
     ENTRY_STATUS_DELETED
-} hashtable_entry_status_e;
+} entry_status_e;
 
 
 static uint8_t _default_strcmp_func(char * str1, char * str2)
@@ -58,6 +49,8 @@ static uint8_t _default_strcmp_func(char * str1, char * str2)
 static void _init_new_table(hashtable_t *table)
 {
     table->last_written = NULL;
+    table->index = 0u;
+    table->used = 0u;
     memset(table->table, 0, ENTRY_SIZE_BYTES(table) * table->size);
 }
 
@@ -70,7 +63,7 @@ static hashtable_entry_t *_find_empty_slot(hashtable_t *table, char *key,
     // Get the first entry to try
     hashtable_entry_t *entry = INDEX_TABLE(table, index);
 
-    while (ENTRY_STATUS_USED == (hashtable_entry_status_e) entry->status)
+    while (ENTRY_STATUS_USED == (entry_status_e) entry->status)
     {
         if (table->strcmp_func(key, entry->key))
         {
@@ -94,10 +87,10 @@ static hashtable_entry_t *_find_used_slot(hashtable_t *table, char *key, uint32_
     // Get the first entry to try
     hashtable_entry_t *entry = INDEX_TABLE(table, index);
 
-    while (ENTRY_STATUS_UNUSED != (hashtable_entry_status_e) entry->status)
+    while (ENTRY_STATUS_UNUSED != (entry_status_e) entry->status)
     {
         // Don't check hash on deleted entries
-        if (ENTRY_STATUS_USED == (hashtable_entry_status_e) entry->status)
+        if (ENTRY_STATUS_USED == (entry_status_e) entry->status)
 
         {
             if (table->strcmp_func(key, entry->key))
@@ -132,7 +125,6 @@ static hashtable_status_e _resize_table(hashtable_t *table, size_t new_size)
     }
 
     table->size = new_size;
-    table->used = 0u;
 
     _init_new_table(table);
 
@@ -145,7 +137,7 @@ static hashtable_status_e _resize_table(hashtable_t *table, size_t new_size)
         hashtable_entry_t *old_entry = (hashtable_entry_t *)
                                        (((uint8_t *) old_table) + offset);
 
-        if (ENTRY_STATUS_USED != (hashtable_entry_status_e) old_entry->status)
+        if (ENTRY_STATUS_USED != (entry_status_e) old_entry->status)
         {
             continue;
         }
@@ -164,6 +156,23 @@ static hashtable_status_e _resize_table(hashtable_t *table, size_t new_size)
 
     memory_manager_free(old_table);
     return HASHTABLE_OK;
+}
+
+
+/* Starting from table->index, find the next used entry in the table and
+ * return a pointer to it */
+static hashtable_entry_t *_find_next_used_entry(hashtable_t *table)
+{
+    for (; table->index < table->size; table->index++)
+    {
+        hashtable_entry_t *entry = INDEX_TABLE(table, table->index);
+        if (ENTRY_STATUS_USED == entry->status)
+        {
+            return entry;
+        }
+    }
+
+    return NULL;
 }
 
 
@@ -297,6 +306,61 @@ hashtable_status_e hashtable_get(hashtable_t *table, char *key, void **data_ptr)
     {
         *data_ptr = entry->data;
     }
+
+    return HASHTABLE_OK;
+}
+
+
+/**
+ * @see hashtable_api.h
+ */
+hashtable_status_e hashtable_next(hashtable_t *table, void **data_ptr)
+{
+    if ((NULL == table) || (0u == table->used))
+    {
+        return HASHTABLE_INVALID_PARAM;
+    }
+
+    hashtable_status_e ret;
+
+    // Get the entry we're writing to data_ptr for this call
+    hashtable_entry_t *entry = _find_next_used_entry(table);
+
+    if (NULL != data_ptr)
+    {
+        *data_ptr = entry->data;
+    }
+
+    // Find next entry to prime for next call
+    (void) _find_next_used_entry(table);
+
+    if (table->index == table->size)
+    {
+        ret = HASHTABLE_LAST_ENTRY;
+        table->index = 0u;
+    }
+    else
+    {
+        ret = HASHTABLE_OK;
+    }
+
+    return ret;
+}
+
+
+/**
+ * @see hashtable_api.h
+ */
+hashtable_status_e hashtable_stats(hashtable_t *table, hashtable_stats_t *stats)
+{
+    if ((NULL == table) || (NULL == stats))
+    {
+        return HASHTABLE_INVALID_PARAM;
+    }
+
+    stats->entry_count = table->used;
+    stats->size_bytes = ENTRY_SIZE_BYTES(table) * table->size;
+    stats->load_factor_percent = LOAD_PERCENTAGE(table);
 
     return HASHTABLE_OK;
 }
