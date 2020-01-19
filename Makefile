@@ -36,16 +36,22 @@ CFLAGS += -Wall $(INCLUDE_FLAGS)
 
 .PHONY: all debug output_dir clean
 
-all: CFLAGS += -O3 -DMEMORY_MANAGER_STATS
+VM_CONFIG_OPTS := \
+	MEMORY_MANAGER_STATS \
+	MEMORY_MANAGER_USE_ODD_BLOCKS
+
+VM_CONFIG_FLAGS := $(addprefix -D,$(VM_CONFIG_OPTS))
+
+all: CFLAGS += -O3 $(VM_CONFIG_FLAGS)
 all: $(BUILD_OUTPUT)
 
-debug: CFLAGS += -g -O0 -DMEMORY_MANAGER_STATS
+debug: CFLAGS += -g -O3 $(VM_CONFIG_FLAGS)
 debug: $(BUILD_OUTPUT)
 
 $(BUILD_OUTPUT): output_dir $(OBJ_FILES)
 	$(CC) $(LFLAGS) $(OBJ_FILES) -o $@
 
-hashtable_test: CFLAGS += -g -O0 -DMEMORY_MANAGER_STATS
+hashtable_test: CFLAGS += -g -O0 $(VM_CONFIG_FLAGS)
 hashtable_test: $(HASHTABLE_TEST)
 
 $(HASHTABLE_TEST): output_dir $(HASHTABLE_TEST_OBJ_FILES)

@@ -133,17 +133,21 @@
             (((uint8_t *) heap->heap) + \
             ROUND_DOWN(((uint8_t *) data) - heap->heap, POOL_SIZE_BYTES)))
 
-
 // Calculate number of bytes remaining to be carved off in a pool
 #define POOL_BYTES_REMAINING(pool) (POOL_SIZE_BYTES - pool->nextoffset)
 
 // Calculate number of bytes remaining to be carved off in a heap
 #define HEAP_BYTES_REMAINING(heap) (HEAP_SIZE_BYTES - heap->nextoffset)
 
-
 // Number of bytes used at the beginning of a mempool_t struct for housekeeping
 #define POOL_OVERHEAD_BYTES ROUND_UP(sizeof(mempool_t), ALIGNMENT_BYTES)
 
+// Number of bytes available for block allocation in a pool
+#define REAL_POOL_SIZE_BYTES (POOL_SIZE_BYTES - POOL_OVERHEAD_BYTES)
+
+// Size of the odd block (partial block) in a pool of the given size class
+#define PARTIAL_BLOCK_SIZE(sz) (REAL_POOL_SIZE_BYTES - \
+                                ((REAL_POOL_SIZE_BYTES / sz) * sz))
 
 // Checks if a pointer points to an allocated block from the given heap
 #define POINTER_IN_HEAP(heap, ptr) ((((uint8_t *) ptr) > heap->heap) && \
@@ -302,7 +306,7 @@ static uint8_t *_find_block_in_used_pool(size_t size)
     uint8_t *ret = NULL;
     unsigned index = BSTOI(size);
 
-    /* Best-case scenario; there is a freed block in this size class
+    /* Best case scenario; there is a freed block in this size class
      * available for re-use. Let's check for that first */
     uint8_t **freehead = &freeblocks[index];
     if (NULL != *freehead)
@@ -333,6 +337,28 @@ static uint8_t *_find_block_in_used_pool(size_t size)
     {
         // No more space in this pool-- unlink from usedpools table
         LIST_UNLINK_HEAD(pool, list);
+
+#ifdef MEMORY_MANAGER_USE_ODD_BLOCKS
+        // Now, see if this pool has a partial block to go into freeblocks table
+        uint16_t oddsize = PARTIAL_BLOCK_SIZE(pool->block_size);
+
+        // 8-byte pool has no odd block
+        if (0u < oddsize)
+        {
+            // Get pointer to the odd block at the end of the pool
+            uint8_t *oddblock = ((uint8_t *) pool) + (POOL_SIZE_BYTES - oddsize);
+
+            // Get pointer to head of oddblock list of size class 'oddsize'
+            uint8_t **head = &freeblocks[BSTOI(oddsize)];
+
+            // Freed block now contains pointer to next free block
+            *((uint8_t **) oddblock) = *head;
+
+            // Freed block is now the head of this list
+            *head = oddblock;
+        }
+#endif /* MEMORY_MANAGER_USE_ODD_BLOCKS */
+
 #ifdef MEMORY_MANAGER_STATS
         // Add pool to fullpools list
         mempool_t **fullpool_head = &fullpools[BSTOI(pool->block_size)];
@@ -535,8 +561,32 @@ void memory_manager_free(void *data)
         // Align down to get mempool_t pointer for this block
         mempool_t *pool = GET_POOL_POINTER(heap, data);
 
-        unsigned index = BSTOI(pool->block_size);
-        uint8_t **head = &freeblocks[index];
+        uint16_t block_size;
+
+#ifdef MEMORY_MANAGER_USE_ODD_BLOCKS
+        // Calculate size of odd block for this pool
+        uint16_t oddsize = PARTIAL_BLOCK_SIZE(pool->block_size);
+
+        // Pointer to this pools odd block
+        uint8_t *oddblock = ((uint8_t *) pool) + (POOL_SIZE_BYTES - oddsize);
+
+        /* no need to check if oddsize is 0, since the pointer comparison below
+         * will always fail in that case anyway */
+        if (((uint8_t *) data) == oddblock)
+        {
+            // Freed block is the odd block-- use odd blocks size class
+            block_size = oddsize;
+        }
+        else
+        {
+            // Freed block is not an odd block-- use pools block size
+            block_size = pool->block_size;
+        }
+#else
+        block_size = pool->block_size;
+#endif /* MEMORY_MANAGER_USE_ODD_BLOCKS */
+
+        uint8_t **head = &freeblocks[BSTOI(block_size)];
 
         // Freed block now contains pointer to next free block
         *((uint8_t **) data) = *head;
@@ -686,6 +736,7 @@ memory_manager_status_e memory_manager_print_stats(mem_stats_t *stats)
     printf("\n");
     return MEMORY_MANAGER_OK;
 }
+
 #endif /* MEMORY_MANAGER_STATS */
 
 
