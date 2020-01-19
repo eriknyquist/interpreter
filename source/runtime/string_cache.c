@@ -122,7 +122,7 @@ string_cache_status_e string_cache_add(string_cache_t *cache,
         }
 
         if (BYTE_STRING_OK != byte_string_add_bytes(&byte_string,
-                                                    strlen(string_to_add),
+                                                    strlen(string_to_add) + 1,
                                                     string_to_add))
         {
             return STRING_CACHE_ERROR;
