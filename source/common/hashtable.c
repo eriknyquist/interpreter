@@ -341,6 +341,7 @@ hashtable_status_e hashtable_next(hashtable_t *table, void **data_ptr)
     }
     else
     {
+        table->index += 1u;
         ret = HASHTABLE_OK;
     }
 
