@@ -39,7 +39,26 @@ string_cache_status_e string_cache_destroy(string_cache_t *cache)
         return STRING_CACHE_INVALID_PARAM;
     }
 
-    hashtable_status_e err = hashtable_destroy(&cache->string_table);
+    hashtable_status_e err;
+
+    do {
+        byte_string_t *string;
+
+        err = hashtable_next(&cache->string_table, (void **) &string);
+        if ((HASHTABLE_OK != err) && (HASHTABLE_LAST_ENTRY != err))
+        {
+            return STRING_CACHE_ERROR;
+        }
+
+        byte_string_status_e str_err = byte_string_destroy(string);
+        if (BYTE_STRING_OK != str_err)
+        {
+            return STRING_CACHE_ERROR;
+        }
+    }
+    while (HASHTABLE_LAST_ENTRY != err);
+
+    err = hashtable_destroy(&cache->string_table);
     if (HASHTABLE_OK != err)
     {
         return STRING_CACHE_ERROR;
