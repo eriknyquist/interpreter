@@ -331,7 +331,9 @@ hashtable_status_e hashtable_next(hashtable_t *table, void **data_ptr)
         *data_ptr = entry->data;
     }
 
+
     // Find next entry to prime for next call
+    table->index += 1u;
     (void) _find_next_used_entry(table);
 
     if (table->index == table->size)
@@ -341,7 +343,6 @@ hashtable_status_e hashtable_next(hashtable_t *table, void **data_ptr)
     }
     else
     {
-        table->index += 1u;
         ret = HASHTABLE_OK;
     }
 

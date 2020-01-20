@@ -8,7 +8,7 @@
  * If 1, prints verbose information about each allocation and de-allocation,
  * intended for debugging
  */
-#define MEMORY_MANAGER_DEBUG (1)
+#define MEMORY_MANAGER_DEBUG (0)
 
 /**
  * If 1, includes functions memory_manager_stats and memory_manager_print_stats
