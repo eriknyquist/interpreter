@@ -4,6 +4,29 @@
 
 /* -- Beginning of tunable settings section -- */
 
+/**
+ * If 1, prints verbose information about each allocation and de-allocation,
+ * intended for debugging
+ */
+#define MEMORY_MANAGER_DEBUG (1)
+
+/**
+ * If 1, includes functions memory_manager_stats and memory_manager_print_stats
+ * to print usage information about heaps, pools and blocks at runtime.
+ * Incurs a runtime penalty when freeing blocks. Set to 0 to disable.
+ */
+#define MEMORY_MANAGER_STATS (1)
+
+/**
+ * If 1, makes use of the odd block at the end of all pools above 8 bytes.
+ * When the last block of a pool is carved out, if it has an odd block matching
+ * one of the size classes in the freeblocks table, it will be linked into the
+ * freeblocks table so that it may be returned to the next allocation request
+ * matching the size of the odd block. Set to 0 to disable.
+ */
+#define MEMORY_MANAGER_USE_ODD_BLOCKS (1)
+
+
 /* If more than this number of bytes is requested, we'll just call plain
  * old system malloc(). This value needs to be a power of 2. */
 #define SMALL_ALLOC_THRESHOLD_BYTES (512)

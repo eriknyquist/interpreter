@@ -36,9 +36,7 @@ CFLAGS += -Wall $(INCLUDE_FLAGS)
 
 .PHONY: all debug output_dir clean
 
-VM_CONFIG_OPTS := \
-	MEMORY_MANAGER_STATS \
-	MEMORY_MANAGER_USE_ODD_BLOCKS
+VM_CONFIG_OPTS :=
 
 VM_CONFIG_FLAGS := $(addprefix -D,$(VM_CONFIG_OPTS))
 

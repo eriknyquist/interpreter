@@ -119,6 +119,16 @@
 
 #include "memory_manager_api.h"
 
+#if MEMORY_MANAGER_STATS || MEMORY_MANAGER_DEBUG
+#include <stdio.h>
+#endif
+
+
+#if MEMORY_MANAGER_DEBUG
+#define DEBUG(fmt, ...) { printf("[memory_manager] "fmt"\n", __VA_ARGS__); }
+#else
+#define DEBUG(fmt, ...) {}
+#endif /* MEMORY_MANAGER_DEBUG */
 
 
 /* Round down size "n" to be a multiple of "a" ("a" must be a power of 2). */
@@ -263,7 +273,7 @@ static mempool_list_t usedpools[NUM_SIZE_CLASSES];
 static uint8_t *freeblocks[NUM_SIZE_CLASSES];
 
 
-#ifdef MEMORY_MANAGER_STATS
+#if MEMORY_MANAGER_STATS
 /* Table of singly-linked lists of pools for each size class. Pools linked in
  * this table have no remaining uncarved blocks. */
 static struct mempool *fullpools[NUM_SIZE_CLASSES];
@@ -293,6 +303,8 @@ static uint8_t * _init_pool(mempool_t *pool, mempool_list_t *list, size_t size)
     // Increment nextoffset member
     pool->nextoffset = POOL_OVERHEAD_BYTES + size;
 
+    DEBUG("initializing new pool (%zu byte pool, pool=%p)", size, pool);
+
     // Return pointer to first block in new pool
     return ((uint8_t *) pool) + POOL_OVERHEAD_BYTES;
 }
@@ -316,6 +328,7 @@ static uint8_t *_find_block_in_used_pool(size_t size)
          * of this free list */
         uint8_t *oldhead = *freehead;
         *freehead = (*(uint8_t **) *freehead);
+        DEBUG("re-using freed %zu byte block (block=%p)", size, oldhead);
         return oldhead;
     }
 
@@ -332,13 +345,15 @@ static uint8_t *_find_block_in_used_pool(size_t size)
     mempool_t *pool = list->head;
     ret = ((uint8_t *) pool) + pool->nextoffset;
     pool->nextoffset += pool->block_size;
+    DEBUG("carving out new block (%zu byte pool, block=%p)", size, ret);
 
     if (POOL_BYTES_REMAINING(pool) < pool->block_size)
     {
         // No more space in this pool-- unlink from usedpools table
+        DEBUG("unlinking from usedpools (%zu byte pool, pool=%p)", size, pool);
         LIST_UNLINK_HEAD(pool, list);
 
-#ifdef MEMORY_MANAGER_USE_ODD_BLOCKS
+#if MEMORY_MANAGER_USE_ODD_BLOCKS
         // Now, see if this pool has a partial block to go into freeblocks table
         uint16_t oddsize = PARTIAL_BLOCK_SIZE(pool->block_size);
 
@@ -359,7 +374,7 @@ static uint8_t *_find_block_in_used_pool(size_t size)
         }
 #endif /* MEMORY_MANAGER_USE_ODD_BLOCKS */
 
-#ifdef MEMORY_MANAGER_STATS
+#if MEMORY_MANAGER_STATS
         // Add pool to fullpools list
         mempool_t **fullpool_head = &fullpools[BSTOI(pool->block_size)];
         pool->next = *fullpool_head;
@@ -412,11 +427,12 @@ memory_manager_status_e memory_manager_init(void)
     // Zero out free block list table
     memset(freeblocks, 0, sizeof(freeblocks));
 
-#ifdef MEMORY_MANAGER_STATS
+#if MEMORY_MANAGER_STATS
     // Zero out pointer to full pool list table
     memset(fullpools, 0, sizeof(fullpools));
 #endif /* MEMORY_MANAGER_STATS */
 
+    DEBUG("allocating new heap object (%zu bytes)", sizeof(memheap_t));
     if ((usedheaps.head = malloc(sizeof(memheap_t))) == NULL)
     {
         return MEMORY_MANAGER_OUT_OF_MEMORY;
@@ -441,6 +457,7 @@ void *memory_manager_alloc(size_t size)
     if (SMALL_ALLOC_THRESHOLD_BYTES < size)
     {
         // size requested is large enough to use system malloc
+        DEBUG("allocating %zu bytes from the system", size);
         return malloc(size);
     }
 
@@ -476,6 +493,7 @@ void *memory_manager_alloc(size_t size)
     // Head of usedheaps is NULL, allocate new heap
     memheap_t *newheap;
 
+    DEBUG("allocating new heap object (%zu bytes)", sizeof(memheap_t));
     if ((newheap = malloc(sizeof(memheap_t))) == NULL)
     {
         return NULL;
@@ -563,7 +581,7 @@ void memory_manager_free(void *data)
 
         uint16_t block_size;
 
-#ifdef MEMORY_MANAGER_USE_ODD_BLOCKS
+#if MEMORY_MANAGER_USE_ODD_BLOCKS
         // Calculate size of odd block for this pool
         uint16_t oddsize = PARTIAL_BLOCK_SIZE(pool->block_size);
 
@@ -576,14 +594,18 @@ void memory_manager_free(void *data)
         {
             // Freed block is the odd block-- use odd blocks size class
             block_size = oddsize;
+            DEBUG("freeing %u byte odd block (%u byte pool, block=%p)",
+                  oddsize, pool->block_size, data);
         }
         else
         {
             // Freed block is not an odd block-- use pools block size
             block_size = pool->block_size;
+            DEBUG("freeing block (%u byte pool, block=%p)", block_size, data);
         }
 #else
         block_size = pool->block_size;
+        DEBUG("freeing block (%u byte pool, block=%p)", block_size, data);
 #endif /* MEMORY_MANAGER_USE_ODD_BLOCKS */
 
         uint8_t **head = &freeblocks[BSTOI(block_size)];
@@ -598,12 +620,12 @@ void memory_manager_free(void *data)
     }
 
     // Pointer is not from any of our memheap_t objects-- free with system free()
+    DEBUG("releasing block back to system (block=%p)", data);
     free(data);
 }
 
 
-#ifdef MEMORY_MANAGER_STATS
-#include <stdio.h>
+#if MEMORY_MANAGER_STATS
 
 /**
  * @see memory_manager_api.h
@@ -745,7 +767,7 @@ memory_manager_status_e memory_manager_print_stats(mem_stats_t *stats)
  */
 memory_manager_status_e memory_manager_destroy(void)
 {
-#ifdef MEMORY_MANAGER_STATS
+#if MEMORY_MANAGER_STATS
     mem_stats_t stats;
     memory_manager_status_e err;
 
@@ -766,6 +788,7 @@ memory_manager_status_e memory_manager_destroy(void)
         while (NULL != heap)
         {
             struct memheap *next = heap->next;
+            DEBUG("freeing heap object (heap=%p)", heap);
             free(heap);
             heap = next;
         }
