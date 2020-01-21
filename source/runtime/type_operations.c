@@ -144,33 +144,25 @@ static type_operations_t _type_ops[NUM_DATATYPES] =
 static type_status_e _multiply_string(vm_int_t int_value, byte_string_t *string_value,
                                       byte_string_t *result_string)
 {
+    /* Ensure result string has enough space to hold multiple copies of result
+     * string data, and we'll drop the null byte on all but the last */
+    size_t result_string_size = ((string_value->size * int_value) - int_value) + 1;
+
     byte_string_status_e err;
 
-    if (BYTE_STRING_OK != (err = byte_string_create(result_string)))
+    if (BYTE_STRING_OK != (err = byte_string_create(result_string,
+                                                    result_string_size, NULL)))
     {
         RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
                     "byte_string_create failed, status %d", err);
         return TYPE_RUNTIME_ERROR;
     }
 
-    /* Ensure result string has enough space to hold multiple copies of result
-     * string data, but we'll drop the null byte on all but the last */
-    size_t result_string_size = ((string_value->used_bytes * int_value) - int_value) + 1;
-
-    if (BYTE_STRING_OK != (err = byte_string_add_bytes(result_string,
-                                                       result_string_size,
-                                                       NULL)))
-    {
-        RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
-                    "byte_string_add_bytes failed, status %d", err);
-        return TYPE_RUNTIME_ERROR;
-    }
-
     // Build new string by making multiple copies of the source string
     for (vm_int_t i = 0; i < int_value; i++)
     {
-        char *target = result_string->bytes + (i * (string_value->used_bytes - 1));
-        (void) memcpy(target, string_value->bytes, string_value->used_bytes - 1);
+        char *target = result_string->bytes + (i * (string_value->size - 1));
+        (void) memcpy(target, string_value->bytes, string_value->size - 1);
     }
 
     result_string->bytes[result_string_size - 1] = '\0';
@@ -198,7 +190,8 @@ static type_status_e _int_to_string(object_t *object, object_t *output, uint16_t
     vm_int_t int_value = data_obj->payload.int_value;
     byte_string_status_e err;
 
-    err = byte_string_create(&data_out->payload.string_value);
+    err = byte_string_create(&data_out->payload.string_value,
+                             MAX_STRING_NUM_SIZE, NULL);
     if (BYTE_STRING_OK != err)
     {
         RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
@@ -297,7 +290,7 @@ static type_status_e _string_to_bool(object_t *object, object_t *output, uint16_
     data_object_t *data_out = (data_object_t *) output;
 
     data_out->data_type = DATATYPE_BOOL;
-    data_out->payload.bool_value = (data_obj->payload.string_value.used_bytes > 0u) ? 1u : 0u;
+    data_out->payload.bool_value = (data_obj->payload.string_value.size > 0u) ? 1u : 0u;
     return TYPE_OK;
 }
 
@@ -327,7 +320,8 @@ static type_status_e _float_to_string(object_t *object, object_t *output, uint16
         return TYPE_RUNTIME_ERROR;
     }
 
-    err = byte_string_create(&data_out->payload.string_value);
+    err = byte_string_create(&data_out->payload.string_value,
+                             MAX_STRING_NUM_SIZE + places, NULL);
     if (BYTE_STRING_OK != err)
     {
         RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
@@ -344,8 +338,8 @@ static type_status_e _float_to_string(object_t *object, object_t *output, uint16
     }
 
     err = byte_string_snprintf(&data_out->payload.string_value,
-                                MAX_STRING_NUM_SIZE + places, fmt_string,
-                                data_obj->payload.float_value);
+                               data_out->payload.string_value.size, fmt_string,
+                               data_obj->payload.float_value);
     if (BYTE_STRING_OK != err)
     {
         RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
@@ -397,7 +391,8 @@ static type_status_e _bool_to_string(object_t *object, object_t *output, uint16_
     data_object_t *data_out = (data_object_t *) output;
     byte_string_status_e err;
 
-    err = byte_string_create(&data_out->payload.string_value);
+    err = byte_string_create(&data_out->payload.string_value,
+                             BOOL_STRING_SIZE, NULL);
     if (BYTE_STRING_OK != err)
     {
         RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
@@ -630,20 +625,14 @@ static type_status_e _arith_string_string(object_t *str_a, object_t *str_b, obje
     data_result->object.obj_type = OBJTYPE_DATA;
     data_result->data_type = DATATYPE_STRING;
 
-    switch (arith_type)
+    if ((ARITH_DIV == arith_type) ||
+        (ARITH_DIV == arith_type) ||
+        (ARITH_MULT == arith_type))
     {
-        case ARITH_DIV:
-        case ARITH_SUB:
             RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
                         "Can't perform %s with two strings",
                         (ARITH_DIV == arith_type) ? "Division" : "Subtraction");
             return TYPE_RUNTIME_ERROR;
-
-            break;
-
-        default:
-            // Nothing to do
-            break;
     }
 
     byte_string_t *result_string = &data_result->payload.string_value;
@@ -651,46 +640,27 @@ static type_status_e _arith_string_string(object_t *str_a, object_t *str_b, obje
     byte_string_t *rhs_string = &data_b->payload.string_value;
     byte_string_status_e err;
 
-    if (BYTE_STRING_OK != (err = byte_string_create(result_string)))
+    // Make sure we have enough space for both strings, but only need 1 null byte
+    size_t new_string_size = (lhs_string->size + rhs_string->size) - 1;
+
+    if (BYTE_STRING_OK != (err = byte_string_create(result_string,
+                                                    new_string_size, NULL)))
     {
         RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
                     "byte_string_create failed, status %d", err);
         return TYPE_RUNTIME_ERROR;
     }
 
-    switch (arith_type)
-    {
-        case ARITH_ADD:
-            // Make sure we have enough space for both strings, but only need 1 null byte
-            if (BYTE_STRING_OK != (err = byte_string_add_bytes(result_string,
-                                                               (lhs_string->used_bytes +
-                                                               rhs_string->used_bytes) - 1,
-                                                               NULL)))
-            {
-                RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
-                            "byte_string_add_bytes failed, status %d", err);
-                return TYPE_RUNTIME_ERROR;
-            }
+    // Add LHS string to result (skip null byte)
+    (void) memcpy(result_string->bytes, lhs_string->bytes,
+                  lhs_string->size - 1);
 
-            // Add LHS string to result (skip null byte)
-            (void) memcpy(result_string->bytes, lhs_string->bytes,
-                          lhs_string->used_bytes - 1);
+    // Add RHS string to result (skip null byte)
+    (void) memcpy(result_string->bytes + (lhs_string->size - 1),
+                  rhs_string->bytes, rhs_string->size - 1);
 
-            // Add RHS string to result (skip null byte)
-            (void) memcpy(result_string->bytes + (lhs_string->used_bytes - 1),
-                          rhs_string->bytes, rhs_string->used_bytes - 1);
-
-            // Ensure string is NULL terminated
-            result_string->bytes[result_string->used_bytes - 1] = '\0';
-            break;
-
-        case ARITH_MULT:
-            break;
-
-        default:
-            // Nothing to do
-            break;
-    }
+    // Ensure string is NULL terminated
+    result_string->bytes[result_string->size - 1] = '\0';
 
     return TYPE_OK;
 }

@@ -103,7 +103,7 @@ string_cache_status_e string_cache_stats(string_cache_t *cache,
             return STRING_CACHE_ERROR;
         }
 
-        stats->total_string_bytes += string->total_bytes;
+        stats->total_string_bytes += string->size;
     }
     while (HASHTABLE_LAST_ENTRY != err);
 
@@ -135,14 +135,9 @@ string_cache_status_e string_cache_add(string_cache_t *cache,
         byte_string_t byte_string;
 
         // String does not already exist, create new byte string object
-        if (BYTE_STRING_OK != byte_string_create(&byte_string))
-        {
-            return STRING_CACHE_ERROR;
-        }
-
-        if (BYTE_STRING_OK != byte_string_add_bytes(&byte_string,
-                                                    strlen(string_to_add) + 1,
-                                                    string_to_add))
+        if (BYTE_STRING_OK != byte_string_create(&byte_string,
+                                                 strlen(string_to_add) + 1,
+                                                 string_to_add))
         {
             return STRING_CACHE_ERROR;
         }

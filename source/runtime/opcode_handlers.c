@@ -183,10 +183,7 @@ opcode_t *opcode_handler_string(opcode_t *opcode, vm_instance_t *instance)
     // Set up new byte string object
     byte_string_t *string = &entry.payload.data_object.payload.string_value;
 
-    CHECK_BYTESTR_ERR_RT(byte_string_create(string));
-
-    // +1 to leave space for trailing null byte
-    CHECK_BYTESTR_ERR_RT(byte_string_add_bytes(string, string_size + 1, NULL));
+    CHECK_BYTESTR_ERR_RT(byte_string_create(string, string_size + 1, NULL));
 
     // Copy string data from bytecode
     (void) memcpy(string->bytes, opcode, string_size);
@@ -428,10 +425,8 @@ opcode_t *opcode_handler_define_const(opcode_t *opcode, vm_instance_t *instance)
             // Set up new byte string object
             byte_string_t *string = &new_const.payload.string_value;
 
-            CHECK_BYTESTR_ERR_RT(byte_string_create(string));
-
             // +1 to leave space for trailing null byte
-            CHECK_BYTESTR_ERR_RT(byte_string_add_bytes(string, string_size + 1, NULL));
+            CHECK_BYTESTR_ERR_RT(byte_string_create(string, string_size + 1, NULL));
 
             // Copy string data from bytecode
             (void) memcpy(string->bytes, opcode, string_size);

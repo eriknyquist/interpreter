@@ -22,8 +22,7 @@ typedef enum
 /* Structure representing a dynamically sized contiguous chunk of bytes */
 typedef struct
 {
-    size_t total_bytes;
-    size_t used_bytes;
+    size_t size;
     char *bytes;
 } byte_string_t;
 
@@ -31,11 +30,15 @@ typedef struct
 /**
  * Initialize a new byte string instance
  *
- * @param    string    Pointer to byte string structure to intialize
+ * @param    string         Pointer to byte string structure to intialize
+ * @param    size           Size to allocate for string in bytes
+ * @param    initial_bytes  If non-NULL, 'size' bytes will be copied from this
+ *                          pointer to the newly created byte string
  *
  * @return   BYTE_STRING_OK if byte string was initialized successfully
  */
-byte_string_status_e byte_string_create(byte_string_t *string);
+byte_string_status_e byte_string_create(byte_string_t *string, size_t size,
+                                        char *initial_bytes);
 
 
 /**
@@ -47,19 +50,6 @@ byte_string_status_e byte_string_create(byte_string_t *string);
  * @return   BYTE_STRING_OK if byte string was destroyed successfully
  */
 byte_string_status_e byte_string_destroy(byte_string_t *string);
-
-
-/**
- * Append bytes to the end of a byte string
- *
- * @param    string     Pointer to byte string structure to append bytes to
- * @param    num_bytes  Number of bytes to append
- * @param    bytes      Pointer to bytes to be added
- *
- * @return   BYTE_STRING_OK if bytes were added successfully
- */
-byte_string_status_e byte_string_add_bytes(byte_string_t *string,
-                                           size_t num_bytes, char *bytes);
 
 
 /**

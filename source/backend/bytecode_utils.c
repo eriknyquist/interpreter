@@ -68,7 +68,7 @@ size_t bytecode_utils_data_object_encoded_size_bytes(data_object_t *data_obj)
 
         case DATATYPE_STRING:
         {
-            ret = 1u + sizeof(uint32_t) + data_obj->payload.string_value.used_bytes;
+            ret = 1u + sizeof(uint32_t) + data_obj->payload.string_value.size;
         }
             break;
 
