@@ -37,6 +37,18 @@
      .arith_functions={(arith_int), (arith_float), (arith_string), (arith_bool)}} \
 
 
+#define TYPE_CHECK_STRING_CACHE_ERR(func)                                     \
+{                                                                             \
+    string_cache_status_e __cache_err = func;                                 \
+    if (STRING_CACHE_ALREADY_CACHED < __cache_err)                            \
+    {                                                                         \
+        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,                                   \
+                    "string_cache_add failed, status %d", __cache_err);       \
+        return TYPE_RUNTIME_ERROR;                                            \
+    }                                                                         \
+}                                                                             \
+
+
 /* Function for casting one data type to another type, creating a new object */
 typedef type_status_e (*cast_func_t) (object_t *, object_t *, uint16_t);
 
@@ -146,9 +158,9 @@ static type_operations_t _type_ops[NUM_DATATYPES] =
 static type_status_e _multiply_string(vm_int_t int_value, byte_string_t *string_value,
                                       byte_string_t *result_string)
 {
-    /* Ensure result string has enough space to hold multiple copies of result
-     * string data, and we'll drop the null byte on all but the last */
-    size_t result_string_size = ((string_value->size - 1) * int_value) + 1;
+    /* Ensure result string has enough space to hold multiple copies of string data,
+     * excluding all null bytes */
+    size_t result_string_size = (string_value->size - 1) * int_value;
 
     char *temp_string;
 
@@ -166,16 +178,11 @@ static type_status_e _multiply_string(vm_int_t int_value, byte_string_t *string_
     }
 
 
-    string_cache_status_e cache_err;
     byte_string_t *new_byte_string;
 
-    cache_err = string_cache_add(temp_string, result_string_size - 1, &new_byte_string);
-    if (STRING_CACHE_OK != cache_err)
-    {
-        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
-                    "string_cache_add failed, status %d", cache_err);
-        return TYPE_RUNTIME_ERROR;
-    }
+    TYPE_CHECK_STRING_CACHE_ERR(string_cache_add(temp_string,
+                                                 result_string_size,
+                                                 &new_byte_string));
 
     memory_manager_free(temp_string);
     memcpy(result_string, new_byte_string, sizeof(byte_string_t));
@@ -206,13 +213,9 @@ static type_status_e _int_to_string(object_t *object, object_t *output, uint16_t
 
     int printed = snprintf(temp_string, MAX_STRING_NUM_SIZE, "%d", int_value);
 
-    string_cache_status_e cache_err = string_cache_add(temp_string, printed + 1, &new_byte_string);
-    if (STRING_CACHE_OK != cache_err)
-    {
-        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
-                    "string_cache_add failed, status %d", cache_err);
-        return TYPE_RUNTIME_ERROR;
-    }
+    TYPE_CHECK_STRING_CACHE_ERR(string_cache_add(temp_string,
+                                                 printed + 1,
+                                                 &new_byte_string));
 
     memcpy(&data_out->payload.string_value, new_byte_string, sizeof(byte_string_t));
     data_out->data_type = DATATYPE_STRING;
@@ -346,13 +349,9 @@ static type_status_e _float_to_string(object_t *object, object_t *output, uint16
     int printed = snprintf(temp_string, string_size, fmt_string,
                            data_obj->payload.float_value);
 
-    string_cache_status_e cache_err = string_cache_add(temp_string, printed + 1, &new_byte_string);
-    if (STRING_CACHE_OK != cache_err)
-    {
-        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
-                    "string_cache_add failed, status %d", cache_err);
-        return TYPE_RUNTIME_ERROR;
-    }
+    TYPE_CHECK_STRING_CACHE_ERR(string_cache_add(temp_string,
+                                                 printed + 1,
+                                                 &new_byte_string));
 
     memory_manager_free(temp_string);
     memcpy(&data_out->payload.string_value, new_byte_string, sizeof(byte_string_t));
@@ -405,13 +404,7 @@ static type_status_e _bool_to_string(object_t *object, object_t *output, uint16_
     int printed = snprintf(temp_string, BOOL_STRING_SIZE, "%s",
                            (data_obj->payload.bool_value) ? BOOL_STRING_TRUE : BOOL_STRING_FALSE);
 
-    string_cache_status_e cache_err = string_cache_add(temp_string, printed + 1, &new_byte_string);
-    if (STRING_CACHE_OK != cache_err)
-    {
-        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
-                    "string_cache_add failed, status %d", cache_err);
-        return TYPE_RUNTIME_ERROR;
-    }
+    TYPE_CHECK_STRING_CACHE_ERR(string_cache_add(temp_string, printed + 1, &new_byte_string));
 
     memcpy(&data_out->payload.string_value, new_byte_string, sizeof(byte_string_t));
     data_out->data_type = DATATYPE_STRING;
@@ -644,7 +637,7 @@ static type_status_e _arith_string_string(object_t *str_a, object_t *str_b, obje
     byte_string_t *lhs_string = &data_a->payload.string_value;
     byte_string_t *rhs_string = &data_b->payload.string_value;
 
-    size_t new_string_size = lhs_string->size + rhs_string->size;
+    size_t new_string_size = (lhs_string->size + rhs_string->size) - 2;
     byte_string_t *new_byte_string;
     char *temp_string;
 
@@ -655,25 +648,18 @@ static type_status_e _arith_string_string(object_t *str_a, object_t *str_b, obje
     }
 
     // Add LHS string to result (skip null byte)
-    (void) memcpy(result_string->bytes, lhs_string->bytes,
-                  lhs_string->size - 1);
+    (void) memcpy(temp_string, lhs_string->bytes, lhs_string->size - 1);
 
     // Add RHS string to result (skip null byte)
-    (void) memcpy(result_string->bytes + (lhs_string->size - 1),
+    (void) memcpy(temp_string + (lhs_string->size - 1),
                   rhs_string->bytes, rhs_string->size - 1);
 
 
-    string_cache_status_e cache_err = string_cache_add(temp_string, new_string_size,
-                                                       &new_byte_string);
-    if (STRING_CACHE_OK != cache_err)
-    {
-        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
-                    "string_cache_add failed, status %d", cache_err);
-        return TYPE_RUNTIME_ERROR;
-    }
+    TYPE_CHECK_STRING_CACHE_ERR(string_cache_add(temp_string, new_string_size,
+                                                 &new_byte_string));
 
     memory_manager_free(temp_string);
-    memcpy(&data_result->payload.string_value, new_byte_string, sizeof(byte_string_t));
+    memcpy(result_string, new_byte_string, sizeof(byte_string_t));
     return TYPE_OK;
 }
 
