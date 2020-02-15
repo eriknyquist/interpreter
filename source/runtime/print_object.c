@@ -27,6 +27,10 @@ void print_object(object_t *object)
             printf("%.4f\n", data_obj->payload.float_value);
             break;
 
+        case DATATYPE_BOOL:
+            printf("%s\n", data_obj->payload.bool_value ? "True" : "False");
+            break;
+
         case DATATYPE_STRING:
             printf("%s\n", data_obj->payload.string_value.bytes);
             break;

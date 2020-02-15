@@ -5,6 +5,7 @@
 #include "bytecode_api.h"
 #include "disassemble_api.h"
 #include "vm_api.h"
+#include "string_cache_api.h"
 
 
 int main(void)
@@ -16,6 +17,13 @@ int main(void)
     {
         printf("Failed to initialize memory manager, status %d\n", mem_err);
         return mem_err;
+    }
+
+    string_cache_status_e cache_err = string_cache_init();
+    if (STRING_CACHE_OK != cache_err)
+    {
+        printf("Failed to initialize string cache, status %d\n", cache_err);
+        return cache_err;
     }
 
     bytecode_status_e bytecode_err = bytecode_create(&program);
@@ -93,8 +101,21 @@ int main(void)
         return vm_err;
     }
 
+    if ((vm_err = vm_destroy(&ins)) != VM_OK)
+    {
+        printf("vm_destroy failed, status %d\n", vm_err);
+        return vm_err;
+    }
+
     printf("\n\n");
     bytecode_destroy(&program);
+
+    cache_err = string_cache_destroy();
+    if (STRING_CACHE_OK != cache_err)
+    {
+        printf("Failed to destroy string cache, status %d\n", cache_err);
+        return cache_err;
+    }
 
     mem_err = memory_manager_destroy();
     if (MEMORY_MANAGER_OK != mem_err)

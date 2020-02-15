@@ -8,12 +8,14 @@
 #include "runtime_error_api.h"
 
 
-#define RUNTIME_ERR(error_code, fmt, ...)                                     \
+#define __RUNTIME_ERR(file, line, error_code, fmt, ...)                       \
     do {                                                                      \
-        fprintf(stderr, fmt, ##__VA_ARGS__);                                  \
+        fprintf(stderr, "[%s:%d] "fmt"\n", file, line, ##__VA_ARGS__);        \
         runtime_error_set(error_code);                                        \
     }                                                                         \
     while(0)
+
+#define RUNTIME_ERR(error_code, fmt, ...) __RUNTIME_ERR(__FILE__, __LINE__, error_code, fmt, ##__VA_ARGS__)
 
 
 #define CHECK_ULIST_ERR_RT(func)                                              \
@@ -37,6 +39,31 @@
             return NULL;                                                      \
         }                                                                     \
     }                                                                         \
+    while(0)
+
+
+#define CHECK_STRING_CACHE_ERR_RT(func)                                          \
+    do {                                                                         \
+        string_cache_status_e __err_code = func;                                 \
+                                                                                 \
+        if (STRING_CACHE_OK != __err_code)                                       \
+        {                                                                        \
+            runtime_error_e __rt_err;                                            \
+            if (STRING_CACHE_MEMORY_ERROR == __err_code)                         \
+            {                                                                    \
+                __rt_err = RUNTIME_ERROR_MEMORY;                                 \
+            }                                                                    \
+            else                                                                 \
+            {                                                                    \
+                __rt_err = RUNTIME_ERROR_INTERNAL;                               \
+            }                                                                    \
+                                                                                 \
+            RUNTIME_ERR(__rt_err,                                                \
+                        "string cache operation failed, status %d",              \
+                        __err_code);                                             \
+            return NULL;                                                         \
+        }                                                                        \
+    }                                                                            \
     while(0)
 
 

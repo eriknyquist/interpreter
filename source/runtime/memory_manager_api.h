@@ -15,7 +15,7 @@
  * to print usage information about heaps, pools and blocks at runtime.
  * Incurs a runtime penalty when freeing blocks. Set to 0 to disable.
  */
-#define MEMORY_MANAGER_STATS (1)
+#define MEMORY_MANAGER_STATS (0)
 
 /**
  * If 1, makes use of the odd block at the end of all pools above 8 bytes.

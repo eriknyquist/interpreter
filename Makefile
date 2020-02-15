@@ -43,7 +43,7 @@ VM_CONFIG_FLAGS := $(addprefix -D,$(VM_CONFIG_OPTS))
 all: CFLAGS += -O3 $(VM_CONFIG_FLAGS)
 all: $(BUILD_OUTPUT)
 
-debug: CFLAGS += -g -O3 $(VM_CONFIG_FLAGS)
+debug: CFLAGS += -g -O0 $(VM_CONFIG_FLAGS)
 debug: $(BUILD_OUTPUT)
 
 $(BUILD_OUTPUT): output_dir $(OBJ_FILES)

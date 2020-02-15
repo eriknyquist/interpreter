@@ -2,6 +2,8 @@
 #include <string.h>
 #include "type_operations_api.h"
 #include "opcode_handlers.h"
+#include "string_cache_api.h"
+#include "memory_manager_api.h"
 
 
 /* Size allocated for string data in a DATATYPE_STRING object created to
@@ -146,26 +148,37 @@ static type_status_e _multiply_string(vm_int_t int_value, byte_string_t *string_
 {
     /* Ensure result string has enough space to hold multiple copies of result
      * string data, and we'll drop the null byte on all but the last */
-    size_t result_string_size = ((string_value->size * int_value) - int_value) + 1;
+    size_t result_string_size = ((string_value->size - 1) * int_value) + 1;
 
-    byte_string_status_e err;
+    char *temp_string;
 
-    if (BYTE_STRING_OK != (err = byte_string_create(result_string,
-                                                    result_string_size, NULL)))
+    if ((temp_string = memory_manager_alloc(result_string_size)) == NULL)
     {
-        RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
-                    "byte_string_create failed, status %d", err);
+        RUNTIME_ERR(RUNTIME_ERROR_MEMORY, "memory_manager_alloc failed");
         return TYPE_RUNTIME_ERROR;
     }
 
     // Build new string by making multiple copies of the source string
     for (vm_int_t i = 0; i < int_value; i++)
     {
-        char *target = result_string->bytes + (i * (string_value->size - 1));
+        char *target = temp_string + (i * (string_value->size - 1));
         (void) memcpy(target, string_value->bytes, string_value->size - 1);
     }
 
-    result_string->bytes[result_string_size - 1] = '\0';
+
+    string_cache_status_e cache_err;
+    byte_string_t *new_byte_string;
+
+    cache_err = string_cache_add(temp_string, result_string_size - 1, &new_byte_string);
+    if (STRING_CACHE_OK != cache_err)
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
+                    "string_cache_add failed, status %d", cache_err);
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    memory_manager_free(temp_string);
+    memcpy(result_string, new_byte_string, sizeof(byte_string_t));
     return TYPE_OK;
 }
 
@@ -188,26 +201,20 @@ static type_status_e _int_to_string(object_t *object, object_t *output, uint16_t
     data_object_t *data_out = (data_object_t *) output;
 
     vm_int_t int_value = data_obj->payload.int_value;
-    byte_string_status_e err;
+    byte_string_t *new_byte_string;
+    char temp_string[MAX_STRING_NUM_SIZE];
 
-    err = byte_string_create(&data_out->payload.string_value,
-                             MAX_STRING_NUM_SIZE, NULL);
-    if (BYTE_STRING_OK != err)
+    int printed = snprintf(temp_string, MAX_STRING_NUM_SIZE, "%d", int_value);
+
+    string_cache_status_e cache_err = string_cache_add(temp_string, printed + 1, &new_byte_string);
+    if (STRING_CACHE_OK != cache_err)
     {
         RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
-                    "byte_string_create failed, status %d", err);
+                    "string_cache_add failed, status %d", cache_err);
         return TYPE_RUNTIME_ERROR;
     }
 
-    err = byte_string_snprintf(&data_out->payload.string_value,
-                               MAX_STRING_NUM_SIZE, "%d", int_value);
-    if (BYTE_STRING_OK != err)
-    {
-        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
-                    "byte_string_snprintf failed, status %d", err);
-        return TYPE_RUNTIME_ERROR;
-    }
-
+    memcpy(&data_out->payload.string_value, new_byte_string, sizeof(byte_string_t));
     data_out->data_type = DATATYPE_STRING;
     return TYPE_OK;
 }
@@ -311,7 +318,9 @@ static type_status_e _float_to_string(object_t *object, object_t *output, uint16
     data_object_t *data_obj = (data_object_t *) object;
     data_object_t *data_out = (data_object_t *) output;
 
-    byte_string_status_e err;
+    char *temp_string;
+    byte_string_t *new_byte_string;
+    size_t string_size = MAX_STRING_NUM_SIZE + places;
 
     if (MAX_FLOAT_PLACES < places)
     {
@@ -320,12 +329,9 @@ static type_status_e _float_to_string(object_t *object, object_t *output, uint16
         return TYPE_RUNTIME_ERROR;
     }
 
-    err = byte_string_create(&data_out->payload.string_value,
-                             MAX_STRING_NUM_SIZE + places, NULL);
-    if (BYTE_STRING_OK != err)
+    if ((temp_string = memory_manager_alloc(string_size)) == NULL)
     {
-        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
-                    "byte_string_create failed, status %d\n", err);
+        RUNTIME_ERR(RUNTIME_ERROR_MEMORY, "memory_manager_alloc failed");
         return TYPE_RUNTIME_ERROR;
     }
 
@@ -337,16 +343,19 @@ static type_status_e _float_to_string(object_t *object, object_t *output, uint16
         return TYPE_RUNTIME_ERROR;
     }
 
-    err = byte_string_snprintf(&data_out->payload.string_value,
-                               data_out->payload.string_value.size, fmt_string,
-                               data_obj->payload.float_value);
-    if (BYTE_STRING_OK != err)
+    int printed = snprintf(temp_string, string_size, fmt_string,
+                           data_obj->payload.float_value);
+
+    string_cache_status_e cache_err = string_cache_add(temp_string, printed + 1, &new_byte_string);
+    if (STRING_CACHE_OK != cache_err)
     {
         RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
-                    "byte_string_snprintf failed, status %d", err);
+                    "string_cache_add failed, status %d", cache_err);
         return TYPE_RUNTIME_ERROR;
     }
 
+    memory_manager_free(temp_string);
+    memcpy(&data_out->payload.string_value, new_byte_string, sizeof(byte_string_t));
     data_out->data_type = DATATYPE_STRING;
     return TYPE_OK;
 }
@@ -389,26 +398,22 @@ static type_status_e _bool_to_string(object_t *object, object_t *output, uint16_
 {
     data_object_t *data_obj = (data_object_t *) object;
     data_object_t *data_out = (data_object_t *) output;
-    byte_string_status_e err;
 
-    err = byte_string_create(&data_out->payload.string_value,
-                             BOOL_STRING_SIZE, NULL);
-    if (BYTE_STRING_OK != err)
+    byte_string_t *new_byte_string;
+    char temp_string[BOOL_STRING_SIZE];
+
+    int printed = snprintf(temp_string, BOOL_STRING_SIZE, "%s",
+                           (data_obj->payload.bool_value) ? BOOL_STRING_TRUE : BOOL_STRING_FALSE);
+
+    string_cache_status_e cache_err = string_cache_add(temp_string, printed + 1, &new_byte_string);
+    if (STRING_CACHE_OK != cache_err)
     {
         RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
-                    "byte_string_create failed, status %d", err);
+                    "string_cache_add failed, status %d", cache_err);
         return TYPE_RUNTIME_ERROR;
     }
 
-    err = byte_string_snprintf(&data_out->payload.string_value, BOOL_STRING_SIZE, "%s",
-                               (data_obj->payload.bool_value) ? BOOL_STRING_TRUE : BOOL_STRING_FALSE);
-    if (BYTE_STRING_OK != err)
-    {
-        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
-                    "byte_string_snprintf failed, status %d", err);
-        return TYPE_RUNTIME_ERROR;
-    }
-
+    memcpy(&data_out->payload.string_value, new_byte_string, sizeof(byte_string_t));
     data_out->data_type = DATATYPE_STRING;
     return TYPE_OK;
 }
@@ -638,16 +643,14 @@ static type_status_e _arith_string_string(object_t *str_a, object_t *str_b, obje
     byte_string_t *result_string = &data_result->payload.string_value;
     byte_string_t *lhs_string = &data_a->payload.string_value;
     byte_string_t *rhs_string = &data_b->payload.string_value;
-    byte_string_status_e err;
 
-    // Make sure we have enough space for both strings, but only need 1 null byte
-    size_t new_string_size = (lhs_string->size + rhs_string->size) - 1;
+    size_t new_string_size = lhs_string->size + rhs_string->size;
+    byte_string_t *new_byte_string;
+    char *temp_string;
 
-    if (BYTE_STRING_OK != (err = byte_string_create(result_string,
-                                                    new_string_size, NULL)))
+    if ((temp_string = memory_manager_alloc(new_string_size)) == NULL)
     {
-        RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
-                    "byte_string_create failed, status %d", err);
+        RUNTIME_ERR(RUNTIME_ERROR_MEMORY, "memory_manager_alloc failed");
         return TYPE_RUNTIME_ERROR;
     }
 
@@ -659,9 +662,18 @@ static type_status_e _arith_string_string(object_t *str_a, object_t *str_b, obje
     (void) memcpy(result_string->bytes + (lhs_string->size - 1),
                   rhs_string->bytes, rhs_string->size - 1);
 
-    // Ensure string is NULL terminated
-    result_string->bytes[result_string->size - 1] = '\0';
 
+    string_cache_status_e cache_err = string_cache_add(temp_string, new_string_size,
+                                                       &new_byte_string);
+    if (STRING_CACHE_OK != cache_err)
+    {
+        RUNTIME_ERR(RUNTIME_ERROR_INTERNAL,
+                    "string_cache_add failed, status %d", cache_err);
+        return TYPE_RUNTIME_ERROR;
+    }
+
+    memory_manager_free(temp_string);
+    memcpy(&data_result->payload.string_value, new_byte_string, sizeof(byte_string_t));
     return TYPE_OK;
 }
 
@@ -686,7 +698,7 @@ static type_status_e _arith_string_int(object_t *string_a, object_t *int_b,
 
     if (TYPE_OK != _multiply_string(int_value, string_value, result_string))
     {
-        // _multiple_string only returns success or runtime error
+        // _multiply_string only returns success or runtime error
         return TYPE_RUNTIME_ERROR;
     }
 

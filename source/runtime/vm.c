@@ -106,26 +106,32 @@ vm_status_e vm_destroy(vm_instance_t *instance)
 
     CHECK_ULIST_ERR(ulist_set_iteration_start_index(&instance->callstack.frames, 0u));
 
-    /* Iterate over callstack frames, and destroy the list used for the data
-     * stack in each callstack frame */
-    while (1)
+    if (instance->callstack.frames.num_items > 0)
     {
-        ulist_status_e err;
-
-        err = ulist_get_next_item(&instance->callstack.frames, (void **) frame);
-        if (ULIST_END == err)
+        /* Iterate over callstack frames, and destroy the list used for the data
+         * stack in each callstack frame */
+        while (1)
         {
-            // No more frames in callstack
-            break;
-        }
-        else if (ULIST_OK != err)
-        {
-            return VM_ERROR;
-        }
+            ulist_status_e err;
 
-        // Destroy datastack for this frame
-        CHECK_ULIST_ERR(ulist_destroy(&frame->data));
+            err = ulist_get_next_item(&instance->callstack.frames, (void **) &frame);
+            if (ULIST_END == err)
+            {
+                // No more frames in callstack
+                break;
+            }
+            else if (ULIST_OK != err)
+            {
+                return VM_ERROR;
+            }
+
+            // Destroy datastack for this frame
+            CHECK_ULIST_ERR(ulist_destroy(&frame->data));
+        }
     }
+
+    // Destroy constants table
+    CHECK_ULIST_ERR(ulist_destroy(&instance->constants));
 
     // Finally, destroy the list that holds the callstack
     CHECK_ULIST_ERR(ulist_destroy(&instance->callstack.frames));

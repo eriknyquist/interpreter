@@ -19,15 +19,6 @@ typedef enum
 
 
 /**
- * Structure representing a string cache
- */
-typedef struct
-{
-    hashtable_t string_table;
-} string_cache_t;
-
-
-/**
  * Structure representing runtime information about a string_cache_t
  */
 typedef struct
@@ -39,23 +30,19 @@ typedef struct
 
 
 /**
- * Initialize a string cache. Allocates some space for initial entries.
- *
- * @param   cache   Pointer to string_cache_t structure to intialize
+ * Initialize the string cache. Allocates some space for initial entries.
  *
  * @return  STRING_CACHE_OK if string cache was initialized successfully
  */
-string_cache_status_e string_cache_create(string_cache_t *cache);
+string_cache_status_e string_cache_init(void);
 
 
 /**
- * Destroy a string cache. Frees any memory allocated for storing cached strings.
- *
- * @param   cache   Pointer to string cache to destroy
+ * Destroy the string cache. Frees any memory allocated for storing cached strings.
  *
  * @return  STRING_CACHE_OK if string cache was destroyed successfully
  */
-string_cache_status_e string_cache_destroy(string_cache_t *cache);
+string_cache_status_e string_cache_destroy(void);
 
 
 /**
@@ -65,28 +52,26 @@ string_cache_status_e string_cache_destroy(string_cache_t *cache);
  * cached byte_string_t will be returned, and no new byte_string_t object will
  * be created.
  *
- * @param   cache          Pointer to string cache to add string to
  * @param   string_to_add  Pointer to NULL terminated string to add to cache
+ * @param   size           Number of bytes to copy from string_to_add
  * @param   cached_string  Pointer to location to store pointer to cached byte_string_t
  *
  * @return  STRING_CACHE_OK if string was added string cache successfully, or
  *          STRING_CACHE_ALREADY_CACHED if provided string was already in the cache
  */
-string_cache_status_e string_cache_add(string_cache_t *cache,
-                                       char *string_to_add,
+string_cache_status_e string_cache_add(char *string_to_add,
+                                       unsigned size,
                                        byte_string_t **cached_string);
 
 
 /**
- * Fetch some usage information about the provided string_cache_t instance
+ * Fetch some usage information about the string cache
  * (see string_cache_stats_t struct definition).
  *
- * @param   cache   Pointer to string cache to get usage information for
  * @param   stats   Pointer to string_cache_stats_t struct to populate
  *
  * @return  STRING_CACHE_OK if usage information was fetched successfully
  */
-string_cache_status_e string_cache_stats(string_cache_t *cache,
-                                         string_cache_stats_t *stats);
+string_cache_status_e string_cache_stats(string_cache_stats_t *stats);
 
 #endif /* STRING_CACHE_API_H */
