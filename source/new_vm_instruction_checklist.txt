@@ -1,0 +1,15 @@
+This is a quick how-to for adding a new instruction to the virtual machine
+(mostly just a list of files/structures that need to be updated).
+
+1. Add new opcode to opcode_e enum definition in source/backend/bytecode_common.h
+
+2. Write a function to generate bytecode for the new instruction in source/backend/bytecode.c
+
+3. Extend disassembler function to handle new instruction in source/backend/disassemble.c
+
+4. Write the opcode handler that the virtual machine will execute when it encounters the
+   new instruction at runtime in source/runtime/opcode_handlers.c
+
+5. Add new opcode handler to the opcode handler table in source/runtime/vm.c
+   (Make sure to position the handler in the table such that the opcode_e value
+   is equal to the handler's index in the table)
