@@ -153,7 +153,8 @@ vm_status_e vm_verify(bytecode_t *program)
         }
 
         opcode_e op = (opcode_e) bytes[i];
-        size_t extra_bytes_to_increment;
+        op_handler_info_t *handler_info = _op_handlers + op;
+        size_t extra_bytes_to_increment = handler_info->bytes;
 
         switch (op)
         {
@@ -161,24 +162,20 @@ vm_status_e vm_verify(bytecode_t *program)
             case OPCODE_STRING:
             {
                 uint32_t string_bytes = *((uint32_t *) (bytes + i + 1u));
-                extra_bytes_to_increment = sizeof(uint32_t) + string_bytes;
+                extra_bytes_to_increment += string_bytes;
                 break;
             }
             // Special case for defining consts, variable bytecode length
             case OPCODE_DEFINE_CONST:
             {
                 opcode_t *data_val = (opcode_t *) (bytes + i + 1u);
-
-                // Calculate size of remaining data
                 extra_bytes_to_increment = bytecode_utils_data_object_size_bytes(data_val);
                 break;
             }
+
             default:
-            {
-                op_handler_info_t *handler_info = _op_handlers + op;
-                extra_bytes_to_increment = handler_info->bytes;
+                ;// Nothing to do
                 break;
-            }
         }
 
         i += extra_bytes_to_increment;
