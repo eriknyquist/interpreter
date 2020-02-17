@@ -184,8 +184,8 @@ static type_status_e _multiply_string(vm_int_t int_value, byte_string_t *string_
                                                  result_string_size,
                                                  &new_byte_string));
 
-    memory_manager_free(temp_string);
     memcpy(result_string, new_byte_string, sizeof(byte_string_t));
+    memory_manager_free(temp_string);
     return TYPE_OK;
 }
 
@@ -214,7 +214,7 @@ static type_status_e _int_to_string(object_t *object, object_t *output, uint16_t
     int printed = snprintf(temp_string, MAX_STRING_NUM_SIZE, "%d", int_value);
 
     TYPE_CHECK_STRING_CACHE_ERR(string_cache_add(temp_string,
-                                                 printed + 1,
+                                                 printed,
                                                  &new_byte_string));
 
     memcpy(&data_out->payload.string_value, new_byte_string, sizeof(byte_string_t));
@@ -350,7 +350,7 @@ static type_status_e _float_to_string(object_t *object, object_t *output, uint16
                            data_obj->payload.float_value);
 
     TYPE_CHECK_STRING_CACHE_ERR(string_cache_add(temp_string,
-                                                 printed + 1,
+                                                 printed,
                                                  &new_byte_string));
 
     memory_manager_free(temp_string);
@@ -404,7 +404,7 @@ static type_status_e _bool_to_string(object_t *object, object_t *output, uint16_
     int printed = snprintf(temp_string, BOOL_STRING_SIZE, "%s",
                            (data_obj->payload.bool_value) ? BOOL_STRING_TRUE : BOOL_STRING_FALSE);
 
-    TYPE_CHECK_STRING_CACHE_ERR(string_cache_add(temp_string, printed + 1, &new_byte_string));
+    TYPE_CHECK_STRING_CACHE_ERR(string_cache_add(temp_string, printed, &new_byte_string));
 
     memcpy(&data_out->payload.string_value, new_byte_string, sizeof(byte_string_t));
     data_out->data_type = DATATYPE_STRING;
@@ -658,8 +658,8 @@ static type_status_e _arith_string_string(object_t *str_a, object_t *str_b, obje
     TYPE_CHECK_STRING_CACHE_ERR(string_cache_add(temp_string, new_string_size,
                                                  &new_byte_string));
 
-    memory_manager_free(temp_string);
     memcpy(result_string, new_byte_string, sizeof(byte_string_t));
+    memory_manager_free(temp_string);
     return TYPE_OK;
 }
 

@@ -183,7 +183,11 @@ opcode_t *opcode_handler_string(opcode_t *opcode, vm_instance_t *instance)
 
     // Set up new byte string object
     byte_string_t *string = &entry.payload.data_object.payload.string_value;
-    CHECK_STRING_CACHE_ERR_RT(string_cache_add((char *) opcode, string_size, &string));
+    byte_string_t *new_byte_string;
+
+    CHECK_STRING_CACHE_ERR_RT(string_cache_add((char *) opcode, string_size, &new_byte_string));
+
+    memcpy(string, new_byte_string, sizeof(byte_string_t));
 
     // Push byte string value onto stack
     CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &entry));

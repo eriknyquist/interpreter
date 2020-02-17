@@ -17,7 +17,7 @@
 #define MIN_STRING_SIZE (32)
 #define MAX_STRING_SIZE (64)
 
-#define NUM_ENTRIES_TO_TEST (1000000)
+#define NUM_ENTRIES_TO_TEST (256)
 
 #define MIN_ENTRIES_TO_DELETE (NUM_ENTRIES_TO_TEST / 100)
 #define MAX_ENTRIES_TO_DELETE (NUM_ENTRIES_TO_TEST / 10)
@@ -46,8 +46,6 @@
 
 #define TIME_HASHTABLE_PUT(op, errval) TIME_HASHTABLE_OP(highest_put_ms, lowest_put_ms, op, errval)
 #define TIME_HASHTABLE_GET(op, errval) TIME_HASHTABLE_OP(highest_get_ms, lowest_get_ms, op, errval)
-
-static string_cache_t stringcache;
 
 
 static uint64_t lowest_get_ms = UINT64_MAX;
@@ -96,7 +94,7 @@ static void _populate_test_data_entry(int count)
 
         buf[size] = '\0';
 
-        err = string_cache_add(&stringcache, buf, &string);
+        err = string_cache_add(buf, size, &string);
     }
     while(STRING_CACHE_OK != err);
 
@@ -264,7 +262,7 @@ int main(int argc, char *argv[])
         return mem_err;
     }
 
-    string_cache_status_e cache_err = string_cache_create(&stringcache);
+    string_cache_status_e cache_err = string_cache_init();
     if (STRING_CACHE_OK != cache_err)
     {
         printf("Failed to initialize string cache, status %d\n", cache_err);
@@ -282,7 +280,7 @@ int main(int argc, char *argv[])
     printf("lowest get time: %" PRIu64 "ms\n", lowest_get_ms);
     printf("highest get time: %" PRIu64 "ms\n\n", highest_get_ms);
 
-    cache_err = string_cache_destroy(&stringcache);
+    cache_err = string_cache_destroy();
     if (STRING_CACHE_OK != cache_err)
     {
         printf("Failed to destroy string cache, status %d\n", cache_err);
