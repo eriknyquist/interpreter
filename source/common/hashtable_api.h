@@ -125,13 +125,15 @@ hashtable_status_e hashtable_destroy(hashtable_t *table);
  * is copied as-is into the hashtable entry, so the caller should ensure that
  * space for the string key remains allocated while the hashtable is in use.
  *
- * @param table  Pointer to hashtable instance
- * @param key    Pointer to NULL-terminated string key used to access the entry.
- * @param data   Pointer to data for hashtable entry.
+ * @param table     Pointer to hashtable instance
+ * @param key       Pointer to NULL-terminated string key used to access the entry.
+ * @param key_size  Key string size in bytes
+ * @param data      Pointer to data for hashtable entry.
  *
  * @return       HASHTABLE_OK if successful, #hastable_status_e otherwise
  */
-hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data);
+hashtable_status_e hashtable_put(hashtable_t *table, char *key, size_t key_size,
+                                 void *data);
 
 
 /**
@@ -139,11 +141,13 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data);
  *
  * @param table     Pointer to hashtable instance
  * @param key       Pointer to NULL-terminated string key for entry to fetch
+ * @param key_size  Key string size in bytes
  * @param data_ptr  Pointer to location to store pointer to fetched entry
  *
  * @return          HASHTABLE_OK if successful, #hastable_status_e otherwise
  */
-hashtable_status_e hashtable_get(hashtable_t *table, char *key, void **data_ptr);
+hashtable_status_e hashtable_get(hashtable_t *table, char *key, size_t key_size,
+                                 void **data_ptr);
 
 
 /**
@@ -181,11 +185,12 @@ hashtable_status_e hashtable_stats(hashtable_t *table, hashtable_stats_t *stats)
  *
  * @param table     Pointer to hashtable instance
  * @param key       Pointer to NULL-terminated string key for entry to delete
+ * @param key_size  Key string size in bytes
  *
  * @return          HASHTABLE_OK if successful, #hastable_status_e otherwise
  *
  */
-hashtable_status_e hashtable_delete(hashtable_t *table, char *key);
+hashtable_status_e hashtable_delete(hashtable_t *table, char *key, size_t key_size);
 
 
 #endif /* _HASHTABLE_API_H */

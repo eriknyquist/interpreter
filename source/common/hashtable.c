@@ -243,7 +243,8 @@ hashtable_status_e hashtable_destroy(hashtable_t *table)
 /**
  * @see hashtable_api.h
  */
-hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data)
+hashtable_status_e hashtable_put(hashtable_t *table, char *key, size_t key_size,
+                                 void *data)
 {
     if ((NULL == table) || (NULL == key) || (NULL == data))
     {
@@ -264,7 +265,7 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data)
     }
 
     // Calculate hash and find corresponding entry
-    uint32_t hash = table->hash_func(key, strlen(key));
+    uint32_t hash = table->hash_func(key, key_size);
     table->last_written = _find_empty_slot(table, key, hash);
     if (NULL == table->last_written)
     {
@@ -287,14 +288,15 @@ hashtable_status_e hashtable_put(hashtable_t *table, char *key, void *data)
 /**
  * @see hashtable_api.h
  */
-hashtable_status_e hashtable_get(hashtable_t *table, char *key, void **data_ptr)
+hashtable_status_e hashtable_get(hashtable_t *table, char *key, size_t key_size,
+                                 void **data_ptr)
 {
     if ((NULL == table) || (NULL == key))
     {
         return HASHTABLE_INVALID_PARAM;
     }
 
-    uint32_t hash = table->hash_func(key, strlen(key));
+    uint32_t hash = table->hash_func(key, key_size);
 
     hashtable_entry_t *entry = _find_used_slot(table, key, hash);
     if (NULL == entry)
@@ -371,14 +373,14 @@ hashtable_status_e hashtable_stats(hashtable_t *table, hashtable_stats_t *stats)
 /**
  * @see hashtable_api.h
  */
-hashtable_status_e hashtable_delete(hashtable_t *table, char *key)
+hashtable_status_e hashtable_delete(hashtable_t *table, char *key, size_t key_size)
 {
     if ((NULL == table) || (NULL == key))
     {
         return HASHTABLE_INVALID_PARAM;
     }
 
-    uint32_t hash = table->hash_func(key, strlen(key));
+    uint32_t hash = table->hash_func(key, key_size);
 
     hashtable_entry_t *entry = _find_used_slot(table, key, hash);
     if (NULL == entry)

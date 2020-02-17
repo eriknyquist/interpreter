@@ -17,7 +17,7 @@
 #define MIN_STRING_SIZE (32)
 #define MAX_STRING_SIZE (64)
 
-#define NUM_ENTRIES_TO_TEST (256)
+#define NUM_ENTRIES_TO_TEST (1000000)
 
 #define MIN_ENTRIES_TO_DELETE (NUM_ENTRIES_TO_TEST / 100)
 #define MAX_ENTRIES_TO_DELETE (NUM_ENTRIES_TO_TEST / 10)
@@ -120,7 +120,8 @@ static int _verify_hashtable_state(hashtable_t *hashtable)
         test_data_t *entry = test_hashtable_entries + i;
 
         getcount++;
-        TIME_HASHTABLE_GET(hashtable_get(hashtable, entry->key, (void **) &data), err);
+        TIME_HASHTABLE_GET(hashtable_get(hashtable, entry->key, strlen(entry->key),
+                                         (void **) &data), err);
         if (entry->deleted)
         {
             // Expecting get operation to fail, item is deleted
@@ -197,7 +198,8 @@ static int _run_test(void)
         test_data_t *entry = test_hashtable_entries + i;
 
         putcount++;
-        TIME_HASHTABLE_PUT(hashtable_put(&hashtable, entry->key, (void **) &entry->data), err);
+        TIME_HASHTABLE_PUT(hashtable_put(&hashtable, entry->key, strlen(entry->key),
+                                         (void **) &entry->data), err);
  
         if (HASHTABLE_OK != err)
         {
@@ -226,7 +228,7 @@ static int _run_test(void)
         }
 
         deletecount++;
-        err = hashtable_delete(&hashtable, entry->key);
+        err = hashtable_delete(&hashtable, entry->key, strlen(entry->key));
         if (HASHTABLE_OK != err)
         {
             printf("hashtable_delete failed, status %d\n", err);

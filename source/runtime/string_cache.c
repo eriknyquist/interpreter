@@ -120,7 +120,7 @@ string_cache_status_e string_cache_add(char *string_to_add,
     byte_string_t *cached;
     hashtable_status_e err;
 
-    err = hashtable_get(&string_table, string_to_add, (void **) &cached);
+    err = hashtable_get(&string_table, string_to_add, size, (void **) &cached);
 
     if (HASHTABLE_NO_ITEM == err)
     {
@@ -136,7 +136,7 @@ string_cache_status_e string_cache_add(char *string_to_add,
         byte_string.bytes[size] = '\0'; // NULL-terminate string
 
         // Add byte string structure to hashtable, use string contents as key
-        err = hashtable_put(&string_table, byte_string.bytes, &byte_string);
+        err = hashtable_put(&string_table, byte_string.bytes, size, &byte_string);
         if (HASHTABLE_OK != err)
         {
             return STRING_CACHE_ERROR;
