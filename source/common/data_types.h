@@ -19,6 +19,8 @@ typedef enum
 {
     OBJTYPE_DATA,
     OBJTYPE_FUNCTION,
+    OBJTYPE_CLASS,
+    OBJTYPE_INSTANCE,
     NUM_OBJTYPES
 } object_type_e;
 

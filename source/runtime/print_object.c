@@ -2,21 +2,8 @@
 #include "print_object_api.h"
 
 
-void print_object(object_t *object)
+static void print_data_obj (data_object_t *data_obj)
 {
-    if (NULL == object)
-    {
-        printf("NULL\n");
-    }
-
-    if (OBJTYPE_DATA != object->obj_type)
-    {
-        printf("Unable to print object type %d\n", object->obj_type);
-        return;
-    }
-
-    data_object_t *data_obj =  (data_object_t *) object;
-
     switch (data_obj->data_type)
     {
         case DATATYPE_INT:
@@ -37,6 +24,41 @@ void print_object(object_t *object)
 
         default:
             printf("Unable to print data type %d\n", data_obj->data_type);
+            break;
+    }
+}
+
+
+void print_object(object_t *object)
+{
+    if (NULL == object)
+    {
+        printf("NULL\n");
+    }
+
+    switch (object->obj_type)
+    {
+        case OBJTYPE_DATA:
+        {
+            data_object_t *data_obj =  (data_object_t *) object;
+            print_data_obj(data_obj);
+            break;
+        }
+
+        case OBJTYPE_FUNCTION:
+            // TODO
+            break;
+
+        case OBJTYPE_CLASS:
+            // TODO
+            break;
+
+        case OBJTYPE_INSTANCE:
+            // TODO
+            break;
+
+        default:
+            printf("Unable to print object type %d\n", object->obj_type);
             break;
     }
 }
