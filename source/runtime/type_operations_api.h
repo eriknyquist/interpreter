@@ -18,11 +18,12 @@ typedef enum
 
 typedef enum
 {
-    ARITH_ADD,
-    ARITH_SUB,
-    ARITH_MULT,
-    ARITH_DIV
-} arith_type_e;
+    BINARY_ADD,
+    BINARY_SUB,
+    BINARY_MULT,
+    BINARY_DIV,
+    BINARY_MOD
+} binary_op_e;
 
 
 /**
@@ -46,20 +47,20 @@ type_status_e type_cast_to(object_t *object, object_t *output,
 
 
 /**
- * Perform the specified arithmetic operation using the provided operands, and
+ * Perform the specified binary operation using the provided operands, and
  * create a new value containing the result
  *
  * @param    lhs         Pointer to LHS value for the operation
  * @param    rhs         Pointer to RHS value for the operation
  * @param    result      Pointer to result value
- * @param    arith_type  Arithmetic operation to perform
+ * @param    op_type  Arithmetic operation to perform
  *
  * @return   TYPE_OK if operation succeeded. If a runtime error was generated,
  *           then TYPE_RUNTIME_ERROR will be returned, otherwise TYPE_INVALID_ARITHMETIC
  *           if no function exists for handling the given LHS and RHS types
  */
-type_status_e type_arithmetic(object_t *lhs, object_t *rhs, object_t *result,
-                              arith_type_e arith_type);
+type_status_e type_binary_op(object_t *lhs, object_t *rhs, object_t *result,
+                             binary_op_e op_type);
 
 
 #endif /* TYPE_OPERATIONS_API_H_ */

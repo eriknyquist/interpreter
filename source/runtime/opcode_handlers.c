@@ -8,18 +8,18 @@
 #include "string_cache_api.h"
 
 
-/* Boilerplate for performing an arithmetic operation by popping two operands
+/* Boilerplate for performing a binary operation by popping two operands
  * off the stack and pushing the result to the stack */
-static opcode_t *_arithmetic_op(opcode_t *opcode, callstack_frame_t *frame,
-                                    arith_type_e arith_type)
+static opcode_t *_binary_op(opcode_t *opcode, callstack_frame_t *frame,
+                            binary_op_e op_type)
 {
     data_stack_entry_t lhs, rhs, result;
 
     CHECK_ULIST_ERR_RT(ulist_pop_item(&frame->data, frame->data.num_items - 1, &rhs));
     CHECK_ULIST_ERR_RT(ulist_pop_item(&frame->data, frame->data.num_items - 1, &lhs));
 
-    type_status_e err = type_arithmetic(&lhs.payload.object, &rhs.payload.object,
-                                        &result.payload.object, arith_type);
+    type_status_e err = type_binary_op(&lhs.payload.object, &rhs.payload.object,
+                                       &result.payload.object, op_type);
     if (TYPE_RUNTIME_ERROR == err)
     {
         return NULL;
@@ -59,7 +59,7 @@ opcode_t *opcode_handler_nop(opcode_t *opcode, vm_instance_t *instance)
  */
 opcode_t *opcode_handler_add(opcode_t *opcode, vm_instance_t *instance)
 {
-    return _arithmetic_op(opcode, instance->callstack.current_frame, ARITH_ADD);
+    return _binary_op(opcode, instance->callstack.current_frame, BINARY_ADD);
 }
 
 
@@ -71,7 +71,7 @@ opcode_t *opcode_handler_add(opcode_t *opcode, vm_instance_t *instance)
  */
 opcode_t *opcode_handler_sub(opcode_t *opcode, vm_instance_t *instance)
 {
-    return _arithmetic_op(opcode, instance->callstack.current_frame, ARITH_SUB);
+    return _binary_op(opcode, instance->callstack.current_frame, BINARY_SUB);
 }
 
 
@@ -83,7 +83,7 @@ opcode_t *opcode_handler_sub(opcode_t *opcode, vm_instance_t *instance)
  */
 opcode_t *opcode_handler_mult(opcode_t *opcode, vm_instance_t *instance)
 {
-    return _arithmetic_op(opcode, instance->callstack.current_frame, ARITH_MULT);
+    return _binary_op(opcode, instance->callstack.current_frame, BINARY_MULT);
 }
 
 
@@ -95,7 +95,7 @@ opcode_t *opcode_handler_mult(opcode_t *opcode, vm_instance_t *instance)
  */
 opcode_t *opcode_handler_div(opcode_t *opcode, vm_instance_t *instance)
 {
-    return _arithmetic_op(opcode, instance->callstack.current_frame, ARITH_DIV);
+    return _binary_op(opcode, instance->callstack.current_frame, BINARY_DIV);
 }
 
 

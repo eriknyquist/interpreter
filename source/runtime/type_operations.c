@@ -31,10 +31,10 @@
 #define MAX_STRING_INT_BASE (36)
 
 
-#define TYPE_OPS_DEF(cast_int, cast_float, cast_string, cast_bool,                \
-                     arith_int, arith_float, arith_string, arith_bool)            \
-    {.cast_functions={(cast_int), (cast_float), (cast_string), (cast_bool)},      \
-     .arith_functions={(arith_int), (arith_float), (arith_string), (arith_bool)}} \
+#define TYPE_OPS_DEF(cast_int, cast_float, cast_string, cast_bool,                     \
+                     binary_int, binary_float, binary_string, binary_bool)             \
+    {.cast_functions={(cast_int), (cast_float), (cast_string), (cast_bool)},           \
+     .binary_functions={(binary_int), (binary_float), (binary_string), (binary_bool)}} \
 
 
 #define TYPE_CHECK_STRING_CACHE_ERR(func)                                     \
@@ -52,19 +52,19 @@
 /* Function for casting one data type to another type, creating a new object */
 typedef type_status_e (*cast_func_t) (object_t *, object_t *, uint16_t);
 
-/* Function for performing an arithmetic operation using two objects as operands,
+/* Function for performing a binary operation using two objects as operands,
  * and creating a new object containing the result */
-typedef type_status_e (*arith_func_t) (object_t *, object_t *, object_t *,
-                                       arith_type_e);
+typedef type_status_e (*binary_func_t) (object_t *, object_t *, object_t *,
+                                        binary_op_e);
 
 /**
- * Structure to hold function pointers for handling casting and arithmetic
+ * Structure to hold function pointers for handling casting and binary/unary
  * operations for a single data type
  */
 typedef struct
 {
     cast_func_t cast_functions[NUM_DATATYPES];
-    arith_func_t arith_functions[NUM_DATATYPES];
+    binary_func_t binary_functions[NUM_DATATYPES];
 } type_operations_t;
 
 
@@ -90,34 +90,34 @@ static type_status_e _bool_to_string(object_t *, object_t *, uint16_t);   /* Cas
 
 
 /* Arithmetic when LHS is an int */
-static type_status_e _arith_int_int(object_t *, object_t *, object_t *, arith_type_e);
-static type_status_e _arith_int_float(object_t *, object_t *, object_t *, arith_type_e);
-static type_status_e _arith_int_string(object_t *, object_t *, object_t *, arith_type_e);
-/* static type_status_e _arith_int_bool(object_t *, object_t *, object_t *, arith_type_e);       (TODO) */
+static type_status_e _binary_int_int(object_t *, object_t *, object_t *, binary_op_e);
+static type_status_e _binary_int_float(object_t *, object_t *, object_t *, binary_op_e);
+static type_status_e _binary_int_string(object_t *, object_t *, object_t *, binary_op_e);
+/* static type_status_e _binary_int_bool(object_t *, object_t *, object_t *, binary_op_e);       (TODO) */
 
 
 /* Arithmetic when LHS is a float */
-static type_status_e _arith_float_int(object_t *, object_t *, object_t *, arith_type_e);
-static type_status_e _arith_float_float(object_t *, object_t *, object_t *, arith_type_e);
-/* static type_status_e _arith_float_string(object_t *, object_t *, object_t *, arith_type_e);   (TODO) */
-/* static type_status_e _arith_float_bool(object_t *, object_t *, object_t *, arith_type_e);     (TODO) */
+static type_status_e _binary_float_int(object_t *, object_t *, object_t *, binary_op_e);
+static type_status_e _binary_float_float(object_t *, object_t *, object_t *, binary_op_e);
+/* static type_status_e _binary_float_string(object_t *, object_t *, object_t *, binary_op_e);   (TODO) */
+/* static type_status_e _binary_float_bool(object_t *, object_t *, object_t *, binary_op_e);     (TODO) */
 
 
 /* Arithmetic when LHS is a string */
-static type_status_e _arith_string_int(object_t *, object_t *, object_t *, arith_type_e);
-/* static type_status_e _arith_string_float(object_t *, object_t *, object_t *, arith_type_e);   (TODO) */
-static type_status_e _arith_string_string(object_t *, object_t *, object_t *, arith_type_e);
+static type_status_e _binary_string_int(object_t *, object_t *, object_t *, binary_op_e);
+/* static type_status_e _binary_string_float(object_t *, object_t *, object_t *, binary_op_e);   (TODO) */
+static type_status_e _binary_string_string(object_t *, object_t *, object_t *, binary_op_e);
 
 
 /* Arithmetic when LHS is a bool */
-static type_status_e _arith_bool_int(object_t *, object_t *, object_t *, arith_type_e);
-static type_status_e _arith_bool_float(object_t *, object_t *, object_t *, arith_type_e);
-/* static type_status_e _arith_bool_bool(object_t *, object_t *, object_t *, arith_type_e);      (TODO) */
+static type_status_e _binary_bool_int(object_t *, object_t *, object_t *, binary_op_e);
+static type_status_e _binary_bool_float(object_t *, object_t *, object_t *, binary_op_e);
+/* static type_status_e _binary_bool_bool(object_t *, object_t *, object_t *, binary_op_e);      (TODO) */
 
 
 /**
  * This table holds all function pointers required for casting or performing
- * arithmetic with all data types. The table is arranged such that the data types
+ * binary/unary operations with all data types. The table is arranged such that the data types
  * of the LHS and RHS operands can be used to index the table and obtain the right
  * function for two operands of any given data type.
  *
@@ -136,22 +136,22 @@ static type_status_e _arith_bool_float(object_t *, object_t *, object_t *, arith
  * as the LHS and a float as the RHS, we first index into the array using the LHS
  * type (int) to get the type_operations_t that contains function pointers for
  * arithmetic with an int as the LHS. Finally, we use the type of the RHS (float)
- * to index into the .arith_functions member of the retrieved type_operations_t
+ * to index into the .binary_functions member of the retrieved type_operations_t
  * structure to get a pointer to the function that will perform the desired operation
  */
 static type_operations_t _type_ops[NUM_DATATYPES] =
 {
     TYPE_OPS_DEF(NULL, _int_to_float, _int_to_string, _int_to_bool,
-                 _arith_int_int, _arith_int_float, _arith_int_string, NULL), // DATATYPE_INT
+                 _binary_int_int, _binary_int_float, _binary_int_string, NULL), // DATATYPE_INT
 
     TYPE_OPS_DEF(_float_to_int, NULL, _float_to_string, _float_to_bool,
-                 _arith_float_int, _arith_float_float, NULL, NULL),          // DATATYPE_FLOAT
+                 _binary_float_int, _binary_float_float, NULL, NULL),          // DATATYPE_FLOAT
 
     TYPE_OPS_DEF(_string_to_int, _string_to_float, NULL, _string_to_bool,
-                 _arith_string_int, NULL, _arith_string_string, NULL),       // DATATYPE_STRING
+                 _binary_string_int, NULL, _binary_string_string, NULL),       // DATATYPE_STRING
 
     TYPE_OPS_DEF(_bool_to_int, _bool_to_float, _bool_to_string, NULL,
-                 _arith_bool_int, _arith_bool_float, NULL, NULL)             // DATATYPE_BOOL
+                 _binary_bool_int, _binary_bool_float, NULL, NULL)             // DATATYPE_BOOL
 };
 
 
@@ -413,8 +413,8 @@ static type_status_e _bool_to_string(object_t *object, object_t *output, uint16_
 
 
 /* Arithmetic functions */
-static type_status_e _arith_int_int(object_t *int_a, object_t *int_b, object_t *result,
-                           arith_type_e arith_type)
+static type_status_e _binary_int_int(object_t *int_a, object_t *int_b, object_t *result,
+                           binary_op_e op_type)
 {
     data_object_t *data_a = (data_object_t *) int_a;
     data_object_t *data_b = (data_object_t *) int_b;
@@ -425,21 +425,21 @@ static type_status_e _arith_int_int(object_t *int_a, object_t *int_b, object_t *
 
     vm_int_t result_int;
 
-    switch (arith_type)
+    switch (op_type)
     {
-        case ARITH_ADD:
+        case BINARY_ADD:
             result_int = data_a->payload.int_value + data_b->payload.int_value;
             break;
 
-        case ARITH_SUB:
+        case BINARY_SUB:
             result_int = data_a->payload.int_value - data_b->payload.int_value;
             break;
 
-        case ARITH_MULT:
+        case BINARY_MULT:
             result_int = data_a->payload.int_value * data_b->payload.int_value;
             break;
 
-        case ARITH_DIV:
+        case BINARY_DIV:
             result_int = data_a->payload.int_value / data_b->payload.int_value;
             break;
 
@@ -453,8 +453,8 @@ static type_status_e _arith_int_int(object_t *int_a, object_t *int_b, object_t *
 }
 
 
-static type_status_e _arith_int_float(object_t *int_a, object_t *float_b,
-                             object_t *result, arith_type_e arith_type)
+static type_status_e _binary_int_float(object_t *int_a, object_t *float_b,
+                             object_t *result, binary_op_e op_type)
 {
     data_object_t *data_a = (data_object_t *) int_a;
     data_object_t *data_b = (data_object_t *) float_b;
@@ -465,24 +465,24 @@ static type_status_e _arith_int_float(object_t *int_a, object_t *float_b,
 
     vm_float_t result_float;
 
-    switch (arith_type)
+    switch (op_type)
     {
-        case ARITH_ADD:
+        case BINARY_ADD:
             result_float = (vm_float_t) data_a->payload.int_value +
                            data_b->payload.float_value;
             break;
 
-        case ARITH_SUB:
+        case BINARY_SUB:
             result_float = (vm_float_t) data_a->payload.int_value -
                            data_b->payload.float_value;
             break;
 
-        case ARITH_MULT:
+        case BINARY_MULT:
             result_float = (vm_float_t) data_a->payload.int_value *
                            data_b->payload.float_value;
             break;
 
-        case ARITH_DIV:
+        case BINARY_DIV:
             result_float = (vm_float_t) data_a->payload.int_value /
                            data_b->payload.float_value;
             break;
@@ -497,10 +497,10 @@ static type_status_e _arith_int_float(object_t *int_a, object_t *float_b,
 }
 
 
-static type_status_e _arith_int_string(object_t *int_a, object_t *string_b,
-                                       object_t *result, arith_type_e arith_type)
+static type_status_e _binary_int_string(object_t *int_a, object_t *string_b,
+                                       object_t *result, binary_op_e op_type)
 {
-    if (ARITH_MULT != arith_type)
+    if (BINARY_MULT != op_type)
     {
         RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
                     "Can't perform operation with int and string");
@@ -525,8 +525,8 @@ static type_status_e _arith_int_string(object_t *int_a, object_t *string_b,
 }
 
 
-static type_status_e _arith_float_int(object_t *float_a, object_t *int_b,
-                             object_t *result, arith_type_e arith_type)
+static type_status_e _binary_float_int(object_t *float_a, object_t *int_b,
+                             object_t *result, binary_op_e op_type)
 {
     data_object_t *data_a = (data_object_t *) float_a;
     data_object_t *data_b = (data_object_t *) int_b;
@@ -537,24 +537,24 @@ static type_status_e _arith_float_int(object_t *float_a, object_t *int_b,
 
     vm_float_t result_float;
 
-    switch (arith_type)
+    switch (op_type)
     {
-        case ARITH_ADD:
+        case BINARY_ADD:
             result_float = data_a->payload.float_value +
                            (vm_float_t) data_b->payload.int_value;
             break;
 
-        case ARITH_SUB:
+        case BINARY_SUB:
             result_float = data_a->payload.float_value -
                            (vm_float_t) data_b->payload.int_value;
             break;
 
-        case ARITH_MULT:
+        case BINARY_MULT:
             result_float = data_a->payload.float_value *
                            (vm_float_t) data_b->payload.int_value;
             break;
 
-        case ARITH_DIV:
+        case BINARY_DIV:
             result_float = data_a->payload.float_value /
                            (vm_float_t) data_b->payload.int_value;
             break;
@@ -569,8 +569,8 @@ static type_status_e _arith_float_int(object_t *float_a, object_t *int_b,
 }
 
 
-static type_status_e _arith_float_float(object_t *float_a, object_t *float_b,
-                               object_t *result, arith_type_e arith_type)
+static type_status_e _binary_float_float(object_t *float_a, object_t *float_b,
+                               object_t *result, binary_op_e op_type)
 {
     data_object_t *data_a = (data_object_t *) float_a;
     data_object_t *data_b = (data_object_t *) float_b;
@@ -581,24 +581,24 @@ static type_status_e _arith_float_float(object_t *float_a, object_t *float_b,
 
     vm_float_t result_float;
 
-    switch (arith_type)
+    switch (op_type)
     {
-        case ARITH_ADD:
+        case BINARY_ADD:
             result_float = data_a->payload.float_value +
                            data_b->payload.float_value;
             break;
 
-        case ARITH_SUB:
+        case BINARY_SUB:
             result_float = data_a->payload.float_value -
                            data_b->payload.float_value;
             break;
 
-        case ARITH_MULT:
+        case BINARY_MULT:
             result_float = data_a->payload.float_value *
                            data_b->payload.float_value;
             break;
 
-        case ARITH_DIV:
+        case BINARY_DIV:
             result_float = data_a->payload.float_value /
                            data_b->payload.float_value;
             break;
@@ -613,8 +613,8 @@ static type_status_e _arith_float_float(object_t *float_a, object_t *float_b,
 }
 
 
-static type_status_e _arith_string_string(object_t *str_a, object_t *str_b, object_t *result,
-                                 arith_type_e arith_type)
+static type_status_e _binary_string_string(object_t *str_a, object_t *str_b, object_t *result,
+                                 binary_op_e op_type)
 {
     data_object_t *data_a = (data_object_t *) str_a;
     data_object_t *data_b = (data_object_t *) str_b;
@@ -623,13 +623,13 @@ static type_status_e _arith_string_string(object_t *str_a, object_t *str_b, obje
     data_result->object.obj_type = OBJTYPE_DATA;
     data_result->data_type = DATATYPE_STRING;
 
-    if ((ARITH_DIV == arith_type) ||
-        (ARITH_DIV == arith_type) ||
-        (ARITH_MULT == arith_type))
+    if ((BINARY_DIV == op_type) ||
+        (BINARY_DIV == op_type) ||
+        (BINARY_MULT == op_type))
     {
             RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
                         "Can't perform %s with two strings",
-                        (ARITH_DIV == arith_type) ? "Division" : "Subtraction");
+                        (BINARY_DIV == op_type) ? "Division" : "Subtraction");
             return TYPE_RUNTIME_ERROR;
     }
 
@@ -664,10 +664,10 @@ static type_status_e _arith_string_string(object_t *str_a, object_t *str_b, obje
 }
 
 
-static type_status_e _arith_string_int(object_t *string_a, object_t *int_b,
-                                       object_t *result, arith_type_e arith_type)
+static type_status_e _binary_string_int(object_t *string_a, object_t *int_b,
+                                       object_t *result, binary_op_e op_type)
 {
-    if (ARITH_MULT != arith_type)
+    if (BINARY_MULT != op_type)
     {
         RUNTIME_ERR(RUNTIME_ERROR_ARITHMETIC,
                     "Can't perform operation with string and int");
@@ -692,8 +692,8 @@ static type_status_e _arith_string_int(object_t *string_a, object_t *int_b,
 }
 
 
-static type_status_e _arith_bool_int(object_t *bool_a, object_t *int_b,
-                                     object_t *result, arith_type_e arith_type)
+static type_status_e _binary_bool_int(object_t *bool_a, object_t *int_b,
+                                     object_t *result, binary_op_e op_type)
 {
     data_object_t *data_a = (data_object_t *) bool_a;
     data_object_t *data_b = (data_object_t *) int_b;
@@ -704,24 +704,24 @@ static type_status_e _arith_bool_int(object_t *bool_a, object_t *int_b,
 
     vm_int_t result_int;
 
-    switch (arith_type)
+    switch (op_type)
     {
-        case ARITH_ADD:
+        case BINARY_ADD:
             result_int = (vm_int_t) data_a->payload.bool_value +
                          data_b->payload.int_value;
             break;
 
-        case ARITH_SUB:
+        case BINARY_SUB:
             result_int = (vm_int_t) data_a->payload.bool_value -
                          data_b->payload.int_value;
             break;
 
-        case ARITH_MULT:
+        case BINARY_MULT:
             result_int = (vm_int_t) data_a->payload.bool_value *
                          data_b->payload.int_value;
             break;
 
-        case ARITH_DIV:
+        case BINARY_DIV:
             result_int = (vm_int_t) data_a->payload.bool_value /
                          data_b->payload.int_value;
             break;
@@ -736,8 +736,8 @@ static type_status_e _arith_bool_int(object_t *bool_a, object_t *int_b,
 }
 
 
-static type_status_e _arith_bool_float(object_t *bool_a, object_t *float_b,
-                                       object_t *result, arith_type_e arith_type)
+static type_status_e _binary_bool_float(object_t *bool_a, object_t *float_b,
+                                       object_t *result, binary_op_e op_type)
 {
     data_object_t *data_a = (data_object_t *) bool_a;
     data_object_t *data_b = (data_object_t *) float_b;
@@ -748,24 +748,24 @@ static type_status_e _arith_bool_float(object_t *bool_a, object_t *float_b,
 
     vm_float_t result_float;
 
-    switch (arith_type)
+    switch (op_type)
     {
-        case ARITH_ADD:
+        case BINARY_ADD:
             result_float = (vm_float_t) data_a->payload.bool_value +
                            data_b->payload.float_value;
             break;
 
-        case ARITH_SUB:
+        case BINARY_SUB:
             result_float = (vm_float_t) data_a->payload.bool_value -
                            data_b->payload.float_value;
             break;
 
-        case ARITH_MULT:
+        case BINARY_MULT:
             result_float = (vm_float_t) data_a->payload.bool_value *
                            data_b->payload.float_value;
             break;
 
-        case ARITH_DIV:
+        case BINARY_DIV:
             result_float = (vm_float_t) data_a->payload.bool_value /
                            data_b->payload.float_value;
             break;
@@ -783,8 +783,8 @@ static type_status_e _arith_bool_float(object_t *bool_a, object_t *float_b,
 /**
  * @see type_operations_api.h
  */
-type_status_e type_arithmetic(object_t *lhs, object_t *rhs, object_t *result,
-                              arith_type_e arith_type)
+type_status_e type_binary_op(object_t *lhs, object_t *rhs, object_t *result,
+                             binary_op_e op_type)
 {
     if ((OBJTYPE_DATA != lhs->obj_type) || (OBJTYPE_DATA != rhs->obj_type))
     {
@@ -795,14 +795,14 @@ type_status_e type_arithmetic(object_t *lhs, object_t *rhs, object_t *result,
     data_object_t *ldata = (data_object_t *) lhs;
 
     type_operations_t *ops = &_type_ops[ldata->data_type];
-    arith_func_t arith_func = ops->arith_functions[rdata->data_type];
+    binary_func_t binary_func = ops->binary_functions[rdata->data_type];
 
-    if (NULL == arith_func)
+    if (NULL == binary_func)
     {
         return TYPE_INVALID_ARITHMETIC;
     }
 
-    return arith_func(lhs, rhs, result, arith_type);
+    return binary_func(lhs, rhs, result, op_type);
 }
 
 
