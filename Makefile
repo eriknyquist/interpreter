@@ -15,7 +15,7 @@ COMMON_OBJ_FILES := $(patsubst %.c,%.o,$(addprefix $(OUTPUT_DIR)/,$(notdir $(COM
 RUNTIME_OBJ_FILES := $(patsubst %.c,%.o,$(addprefix $(OUTPUT_DIR)/,$(notdir $(RUNTIME_FILES))))
 BACKEND_OBJ_FILES := $(patsubst %.c,%.o,$(addprefix $(OUTPUT_DIR)/,$(notdir $(BACKEND_FILES))))
 
-VPATH := $(INCLUDE_DIRS)
+VPATH := interpreter_test $(INCLUDE_DIRS)
 
 SRC_FILES := $(foreach dir,$(SRC_DIR),$(wildcard $(dir)/*.c)) \
 			 $(COMMON_FILES) \
@@ -24,17 +24,17 @@ SRC_FILES := $(foreach dir,$(SRC_DIR),$(wildcard $(dir)/*.c)) \
 
 OBJ_FILES := $(patsubst %.c,%.o,$(addprefix $(OUTPUT_DIR)/,$(notdir $(SRC_FILES))))
 
-HASHTABLE_TEST_OBJ_FILES := test/hashtable_test.o $(COMMON_OBJ_FILES) $(RUNTIME_OBJ_FILES) $(BACKEND_OBJ_FILES)
-
 INCLUDE_FLAGS := $(addprefix -I, $(INCLUDE_DIRS))
 
 PROGNAME := testexe
 BUILD_OUTPUT := $(OUTPUT_DIR)/$(PROGNAME)
 HASHTABLE_TEST := $(OUTPUT_DIR)/hashtable_test
 
+HASHTABLE_TEST_OBJ_FILES := $(COMMON_OBJ_FILES) $(RUNTIME_OBJ_FILES) $(BACKEND_OBJ_FILES) $(HASHTABLE_TEST).o
+
 CFLAGS += -Wall $(INCLUDE_FLAGS)
 
-.PHONY: all debug output_dir clean
+.PHONY: all debug output_dir clean hashtable_test
 
 VM_CONFIG_OPTS :=
 
