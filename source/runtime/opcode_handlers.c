@@ -6,6 +6,15 @@
 #include "opcode_handlers.h"
 #include "common.h"
 #include "string_cache_api.h"
+#include "memory_manager_api.h"
+#include "object_helpers_api.h"
+
+
+#define FREE_IF_NO_REFS(objptr)                                               \
+    if (0u == objptr->refcount)                                               \
+    {                                                                         \
+        memory_manager_free(objptr);                                          \
+    }                                                                         \
 
 
 /* Boilerplate for performing a binary operation by popping two operands
@@ -13,13 +22,12 @@
 static opcode_t *_binary_op(opcode_t *opcode, callstack_frame_t *frame,
                             binary_op_e op_type)
 {
-    data_stack_entry_t lhs, rhs, result;
+    object_t *lhs, *rhs, *result;
 
-    CHECK_ULIST_ERR_RT(ulist_pop_item(&frame->data, frame->data.num_items - 1, &rhs));
-    CHECK_ULIST_ERR_RT(ulist_pop_item(&frame->data, frame->data.num_items - 1, &lhs));
+    CHECK_ULIST_ERR_RT(ulist_pop_item(&frame->data, frame->data.num_items - 1, (void **) &rhs));
+    CHECK_ULIST_ERR_RT(ulist_pop_item(&frame->data, frame->data.num_items - 1, (void **) &lhs));
 
-    type_status_e err = type_binary_op(&lhs.payload.object, &rhs.payload.object,
-                                       &result.payload.object, op_type);
+    type_status_e err = type_binary_op(lhs, rhs, &result, op_type);
     if (TYPE_RUNTIME_ERROR == err)
     {
         return NULL;
@@ -30,8 +38,8 @@ static opcode_t *_binary_op(opcode_t *opcode, callstack_frame_t *frame,
         return NULL;
     }
 
-    FREE_DATA_OBJECT(&lhs.payload.object);
-    FREE_DATA_OBJECT(&rhs.payload.object);
+    FREE_IF_NO_REFS(lhs);
+    FREE_IF_NO_REFS(rhs);
 
     CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &result));
     return opcode + 1;
@@ -107,20 +115,16 @@ opcode_t *opcode_handler_div(opcode_t *opcode, vm_instance_t *instance)
  */
 opcode_t *opcode_handler_int(opcode_t *opcode, vm_instance_t *instance)
 {
-    data_stack_entry_t entry;
     callstack_frame_t *frame = instance->callstack.current_frame;
-
-    entry.payload.data_object.object.obj_type = OBJTYPE_DATA;
-    entry.payload.data_object.data_type = DATATYPE_INT;
 
     // Increment past the opcode
     opcode = (opcode_t *) INCREMENT_PTR_BYTES(opcode, 1);
 
-    // Grab int value after opcode
-    entry.payload.data_object.payload.int_value = *((vm_int_t *) opcode);
+    // Grab int value after opcode and create new int object
+    object_t *new_obj = new_int_object(*((vm_int_t *) opcode));
 
     // Push int value onto stack
-    CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &entry));
+    CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &new_obj));
 
     // Increment past the int value and return
     return INCREMENT_PTR_BYTES(opcode, sizeof(vm_int_t));
@@ -136,20 +140,16 @@ opcode_t *opcode_handler_int(opcode_t *opcode, vm_instance_t *instance)
  */
 opcode_t *opcode_handler_float(opcode_t *opcode, vm_instance_t *instance)
 {
-    data_stack_entry_t entry;
     callstack_frame_t *frame = instance->callstack.current_frame;
-
-    entry.payload.data_object.object.obj_type = OBJTYPE_DATA;
-    entry.payload.data_object.data_type = DATATYPE_FLOAT;
 
     // Increment past the opcode
     opcode = (opcode_t *) INCREMENT_PTR_BYTES(opcode, 1);
 
-    // Grab int value after opcode
-    entry.payload.data_object.payload.float_value = *((vm_float_t *) opcode);
+    // Grab int value after opcode and create new float object
+    object_t *new_obj = new_int_object(*((vm_float_t *) opcode));
 
     // Push int value onto stack
-    CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &entry));
+    CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &new_obj));
 
     // Increment past the float value and return
     return INCREMENT_PTR_BYTES(opcode, sizeof(vm_float_t));
@@ -165,15 +165,10 @@ opcode_t *opcode_handler_float(opcode_t *opcode, vm_instance_t *instance)
  */
 opcode_t *opcode_handler_string(opcode_t *opcode, vm_instance_t *instance)
 {
-    data_stack_entry_t entry;
     callstack_frame_t *frame = instance->callstack.current_frame;
-
-    entry.payload.data_object.object.obj_type = OBJTYPE_DATA;
-    entry.payload.data_object.data_type = DATATYPE_STRING;
 
     // Increment past the opcode
     opcode = (opcode_t *) INCREMENT_PTR_BYTES(opcode, 1);
-
 
     // Read size of the upcoming string data
     uint32_t string_size = *(uint32_t *) opcode;
@@ -182,15 +177,10 @@ opcode_t *opcode_handler_string(opcode_t *opcode, vm_instance_t *instance)
     opcode = (opcode_t *) INCREMENT_PTR_BYTES(opcode, sizeof(uint32_t));
 
     // Set up new byte string object
-    byte_string_t *string = &entry.payload.data_object.payload.string_value;
-    byte_string_t *new_byte_string;
-
-    CHECK_STRING_CACHE_ERR_RT(string_cache_add((char *) opcode, string_size, &new_byte_string));
-
-    memcpy(string, new_byte_string, sizeof(byte_string_t));
+    object_t *new_obj = new_string_object((char *) opcode, string_size);
 
     // Push byte string value onto stack
-    CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &entry));
+    CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &new_obj));
 
     // Increment past string data
     return INCREMENT_PTR_BYTES(opcode, string_size);
@@ -207,20 +197,16 @@ opcode_t *opcode_handler_string(opcode_t *opcode, vm_instance_t *instance)
  */
 opcode_t *opcode_handler_bool(opcode_t *opcode, vm_instance_t *instance)
 {
-    data_stack_entry_t entry;
     callstack_frame_t *frame = instance->callstack.current_frame;
-
-    entry.payload.data_object.object.obj_type = OBJTYPE_DATA;
-    entry.payload.data_object.data_type = DATATYPE_BOOL;
 
     // Increment past the opcode
     opcode = (opcode_t *) INCREMENT_PTR_BYTES(opcode, 1);
 
     // Grab bool value after opcode
-    entry.payload.data_object.payload.bool_value = *((vm_bool_t *) opcode);
+    object_t *new_obj = new_bool_object(*((vm_bool_t *) opcode));
 
     // Push new bool value onto stack
-    CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &entry));
+    CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &new_obj));
 
     // Increment past the bool value and return
     return INCREMENT_PTR_BYTES(opcode, sizeof(vm_bool_t));
@@ -234,12 +220,13 @@ opcode_t *opcode_handler_bool(opcode_t *opcode, vm_instance_t *instance)
  */
 opcode_t *opcode_handler_print(opcode_t *opcode, vm_instance_t *instance)
 {
-    data_stack_entry_t entry;
     callstack_frame_t *frame = instance->callstack.current_frame;
+    object_t *obj;
 
-    CHECK_ULIST_ERR_RT(ulist_pop_item(&frame->data, frame->data.num_items - 1, &entry));
+    CHECK_ULIST_ERR_RT(ulist_pop_item(&frame->data, frame->data.num_items - 1, (void **) &obj));
 
-    print_object(&entry.payload.object);
+    print_object(obj);
+    FREE_IF_NO_REFS(obj);
 
     return INCREMENT_PTR_BYTES(opcode, 1);
 }
@@ -266,11 +253,10 @@ opcode_t *opcode_handler_print(opcode_t *opcode, vm_instance_t *instance)
 opcode_t *opcode_handler_cast(opcode_t *opcode, vm_instance_t *instance)
 {
     callstack_frame_t *frame = instance->callstack.current_frame;
-    data_stack_entry_t input;
-    data_stack_entry_t output;
+    object_t *input, *output;
     type_status_e err;
 
-    CHECK_ULIST_ERR_RT(ulist_pop_item(&frame->data, frame->data.num_items - 1, &input));
+    CHECK_ULIST_ERR_RT(ulist_pop_item(&frame->data, frame->data.num_items - 1, (void **) &input));
 
     // Increment past the opcode
     opcode = (opcode_t *) INCREMENT_PTR_BYTES(opcode, 1);
@@ -285,9 +271,7 @@ opcode_t *opcode_handler_cast(opcode_t *opcode, vm_instance_t *instance)
     // Read extra data
     uint16_t extra_data = *((uint16_t *) opcode);
 
-    err = type_cast_to(&input.payload.object, &output.payload.object,
-                       data_type, extra_data);
-
+    err = type_cast_to(input, &output, data_type, extra_data);
     if (TYPE_OK != err)
     {
         if (TYPE_RUNTIME_ERROR != err)
@@ -300,6 +284,8 @@ opcode_t *opcode_handler_cast(opcode_t *opcode, vm_instance_t *instance)
 
     // Push result of cast onto stack
     CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &output));
+
+    FREE_IF_NO_REFS(input);
 
     // Increment past extra data and return
     return INCREMENT_PTR_BYTES(opcode, sizeof(uint16_t));
@@ -329,23 +315,23 @@ opcode_t *opcode_handler_jump(opcode_t *opcode, vm_instance_t *instance)
 opcode_t *opcode_handler_jump_if_false(opcode_t *opcode, vm_instance_t *instance)
 {
     callstack_frame_t *frame = instance->callstack.current_frame;
-    data_object_t bool_data, *bool_data_ptr;
-    data_stack_entry_t entry;
+    object_t *obj, *bool_obj;
+    data_object_t *bool_data_ptr;
     type_status_e err;
 
-    CHECK_ULIST_ERR_RT(ulist_pop_item(&frame->data, frame->data.num_items - 1, &entry));
+    bool_obj = NULL;
+    CHECK_ULIST_ERR_RT(ulist_pop_item(&frame->data, frame->data.num_items - 1,
+                                      (void **) &obj));
 
     // Cast popped item to bool
-    err = type_cast_to(&entry.payload.object, &bool_data.object,
-                       DATATYPE_BOOL, 0u);
-
+    err = type_cast_to(obj, &bool_obj, DATATYPE_BOOL, 0u);
     if (TYPE_NO_CAST_REQUIRED == err)
     {
-        bool_data_ptr = &entry.payload.data_object;
+        bool_data_ptr = (data_object_t *) obj;
     }
     else if (TYPE_OK == err)
     {
-        bool_data_ptr = &bool_data;
+        bool_data_ptr = (data_object_t *) bool_obj;
     }
     else
     {
@@ -371,6 +357,13 @@ opcode_t *opcode_handler_jump_if_false(opcode_t *opcode, vm_instance_t *instance
         ret = INCREMENT_PTR_BYTES(opcode, offset);
     }
 
+    FREE_IF_NO_REFS(obj);
+
+    if (NULL != bool_obj)
+    {
+        memory_manager_free(bool_obj);
+    }
+
     return ret;
 }
 
@@ -384,31 +377,30 @@ opcode_t *opcode_handler_jump_if_false(opcode_t *opcode, vm_instance_t *instance
  */
 opcode_t *opcode_handler_define_const(opcode_t *opcode, vm_instance_t *instance)
 {
-    data_object_t new_const;
+    object_t *new_const;
 
     // Increment past the opcode
     opcode = INCREMENT_PTR_BYTES(opcode, 1);
 
-    new_const.object.obj_type = OBJTYPE_DATA;
-    new_const.data_type = (data_type_e) *((uint8_t *) opcode);
+    data_type_e data_type = (data_type_e) *((uint8_t *) opcode);
 
     // Increment past data type
     opcode = INCREMENT_PTR_BYTES(opcode, 1);
 
-    switch (new_const.data_type)
+    switch (data_type)
     {
         case DATATYPE_INT:
-            new_const.payload.int_value = *((vm_int_t *) opcode);
+            new_const = new_int_object(*((vm_int_t *) opcode));
             opcode = INCREMENT_PTR_BYTES(opcode, sizeof(vm_int_t));
             break;
 
         case DATATYPE_FLOAT:
-            new_const.payload.float_value = *((vm_float_t *) opcode);
+            new_const = new_float_object(*((vm_float_t *) opcode));
             opcode = INCREMENT_PTR_BYTES(opcode, sizeof(vm_float_t));
             break;
 
         case DATATYPE_BOOL:
-            new_const.payload.bool_value = *((vm_bool_t *) opcode);
+            new_const = new_bool_object(*((vm_bool_t *) opcode));
             opcode = INCREMENT_PTR_BYTES(opcode, sizeof(vm_bool_t));
             break;
 
@@ -421,11 +413,7 @@ opcode_t *opcode_handler_define_const(opcode_t *opcode, vm_instance_t *instance)
             opcode = INCREMENT_PTR_BYTES(opcode, sizeof(uint32_t));
 
             // Create new byte string object
-            byte_string_t *new_string;
-            CHECK_STRING_CACHE_ERR_RT(string_cache_add((char *) opcode, string_size, &new_string));
-
-            // Copy new byte_string_t object to new const object
-            memcpy(&new_const.payload.string_value, new_string, sizeof(byte_string_t));
+            new_const = new_string_object((char *) opcode, string_size);
 
             // Increment past string data
             opcode = INCREMENT_PTR_BYTES(opcode, string_size);
@@ -438,7 +426,6 @@ opcode_t *opcode_handler_define_const(opcode_t *opcode, vm_instance_t *instance)
 
     // Append new const value to the constants pool
     CHECK_ULIST_ERR_RT(ulist_append_item(&instance->constants, &new_const));
-
     return opcode;
 }
 
@@ -452,17 +439,16 @@ opcode_t *opcode_handler_define_const(opcode_t *opcode, vm_instance_t *instance)
 opcode_t *opcode_handler_load_const(opcode_t *opcode, vm_instance_t *instance)
 {
     callstack_frame_t *frame = instance->callstack.current_frame;
-    data_stack_entry_t entry;
+    object_t *entry;
 
     // Increment past the opcode
     opcode = INCREMENT_PTR_BYTES(opcode, 1);
 
     uint32_t index = *((uint32_t *) opcode);
-    entry.payload.object.obj_type = OBJTYPE_DATA;
 
     CHECK_ULIST_ERR_RT(ulist_get_item(&instance->constants,
                                       (unsigned long long) index,
-                                      (void **) &entry.payload.data_object));
+                                      (void **) &entry));
 
     // Push loaded constant onto stack
     CHECK_ULIST_ERR_RT(ulist_append_item(&frame->data, &entry));

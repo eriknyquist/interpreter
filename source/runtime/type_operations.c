@@ -4,6 +4,7 @@
 #include "opcode_handlers.h"
 #include "string_cache_api.h"
 #include "memory_manager_api.h"
+#include "object_helpers_api.h"
 
 
 /* Size allocated for string data in a DATATYPE_STRING object created to
@@ -50,11 +51,11 @@
 
 
 /* Function for casting one data type to another type, creating a new object */
-typedef type_status_e (*cast_func_t) (object_t *, object_t *, uint16_t);
+typedef type_status_e (*cast_func_t) (object_t *, object_t **, uint16_t);
 
 /* Function for performing a binary operation using two objects as operands,
  * and creating a new object containing the result */
-typedef type_status_e (*binary_func_t) (object_t *, object_t *, object_t *,
+typedef type_status_e (*binary_func_t) (object_t *, object_t *, object_t **,
                                         binary_op_e);
 
 /**
@@ -69,50 +70,50 @@ typedef struct
 
 
 /* Casting functions for ints */
-static type_status_e _int_to_float(object_t *, object_t *, uint16_t);     /* Cast int to float */
-static type_status_e _int_to_string(object_t *, object_t *, uint16_t);    /* Cast int to string */
-static type_status_e _int_to_bool(object_t *, object_t *, uint16_t);      /* Cast int to bool */
+static type_status_e _int_to_float(object_t *, object_t **, uint16_t);     /* Cast int to float */
+static type_status_e _int_to_string(object_t *, object_t **, uint16_t);    /* Cast int to string */
+static type_status_e _int_to_bool(object_t *, object_t **, uint16_t);      /* Cast int to bool */
 
 /* Casting functions for floats */
-static type_status_e _float_to_int(object_t *, object_t *, uint16_t);     /* Cast float to int */
-static type_status_e _float_to_string(object_t *, object_t *, uint16_t);  /* Cast float to string */
-static type_status_e _float_to_bool(object_t *, object_t *, uint16_t);    /* Cast float to bool */
+static type_status_e _float_to_int(object_t *, object_t **, uint16_t);     /* Cast float to int */
+static type_status_e _float_to_string(object_t *, object_t **, uint16_t);  /* Cast float to string */
+static type_status_e _float_to_bool(object_t *, object_t **, uint16_t);    /* Cast float to bool */
 
 /* Casting functions for strings */
-static type_status_e _string_to_int(object_t *, object_t *, uint16_t);    /* Cast string to int */
-static type_status_e _string_to_float(object_t *, object_t *, uint16_t);  /* Cast string to float */
-static type_status_e _string_to_bool(object_t *, object_t *, uint16_t);   /* Cast string to bool */
+static type_status_e _string_to_int(object_t *, object_t **, uint16_t);    /* Cast string to int */
+static type_status_e _string_to_float(object_t *, object_t **, uint16_t);  /* Cast string to float */
+static type_status_e _string_to_bool(object_t *, object_t **, uint16_t);   /* Cast string to bool */
 
 /* Casting functions for bools */
-static type_status_e _bool_to_int(object_t *, object_t *, uint16_t);      /* Cast bool to int */
-static type_status_e _bool_to_float(object_t *, object_t *, uint16_t);    /* Cast bool to float */
-static type_status_e _bool_to_string(object_t *, object_t *, uint16_t);   /* Cast bool to string */
+static type_status_e _bool_to_int(object_t *, object_t **, uint16_t);      /* Cast bool to int */
+static type_status_e _bool_to_float(object_t *, object_t **, uint16_t);    /* Cast bool to float */
+static type_status_e _bool_to_string(object_t *, object_t **, uint16_t);   /* Cast bool to string */
 
 
 /* Arithmetic when LHS is an int */
-static type_status_e _binary_int_int(object_t *, object_t *, object_t *, binary_op_e);
-static type_status_e _binary_int_float(object_t *, object_t *, object_t *, binary_op_e);
-static type_status_e _binary_int_string(object_t *, object_t *, object_t *, binary_op_e);
-/* static type_status_e _binary_int_bool(object_t *, object_t *, object_t *, binary_op_e);       (TODO) */
+static type_status_e _binary_int_int(object_t *, object_t *, object_t **, binary_op_e);
+static type_status_e _binary_int_float(object_t *, object_t *, object_t **, binary_op_e);
+static type_status_e _binary_int_string(object_t *, object_t *, object_t **, binary_op_e);
+/* static type_status_e _binary_int_bool(object_t *, object_t *, object_t **, binary_op_e);       (TODO) */
 
 
 /* Arithmetic when LHS is a float */
-static type_status_e _binary_float_int(object_t *, object_t *, object_t *, binary_op_e);
-static type_status_e _binary_float_float(object_t *, object_t *, object_t *, binary_op_e);
-/* static type_status_e _binary_float_string(object_t *, object_t *, object_t *, binary_op_e);   (TODO) */
-/* static type_status_e _binary_float_bool(object_t *, object_t *, object_t *, binary_op_e);     (TODO) */
+static type_status_e _binary_float_int(object_t *, object_t *, object_t **, binary_op_e);
+static type_status_e _binary_float_float(object_t *, object_t *, object_t **, binary_op_e);
+/* static type_status_e _binary_float_string(object_t *, object_t *, object_t **, binary_op_e);   (TODO) */
+/* static type_status_e _binary_float_bool(object_t *, object_t *, object_t **, binary_op_e);     (TODO) */
 
 
 /* Arithmetic when LHS is a string */
-static type_status_e _binary_string_int(object_t *, object_t *, object_t *, binary_op_e);
-/* static type_status_e _binary_string_float(object_t *, object_t *, object_t *, binary_op_e);   (TODO) */
-static type_status_e _binary_string_string(object_t *, object_t *, object_t *, binary_op_e);
+static type_status_e _binary_string_int(object_t *, object_t *, object_t **, binary_op_e);
+/* static type_status_e _binary_string_float(object_t *, object_t *, object_t **, binary_op_e);   (TODO) */
+static type_status_e _binary_string_string(object_t *, object_t *, object_t **, binary_op_e);
 
 
 /* Arithmetic when LHS is a bool */
-static type_status_e _binary_bool_int(object_t *, object_t *, object_t *, binary_op_e);
-static type_status_e _binary_bool_float(object_t *, object_t *, object_t *, binary_op_e);
-/* static type_status_e _binary_bool_bool(object_t *, object_t *, object_t *, binary_op_e);      (TODO) */
+static type_status_e _binary_bool_int(object_t *, object_t *, object_t **, binary_op_e);
+static type_status_e _binary_bool_float(object_t *, object_t *, object_t **, binary_op_e);
+/* static type_status_e _binary_bool_bool(object_t *, object_t *, object_t **, binary_op_e);      (TODO) */
 
 
 /**
@@ -156,7 +157,7 @@ static type_operations_t _type_ops[NUM_DATATYPES] =
 
 
 static type_status_e _multiply_string(vm_int_t int_value, byte_string_t *string_value,
-                                      byte_string_t *result_string)
+                                      object_t **result)
 {
     /* Ensure result string has enough space to hold multiple copies of string data,
      * excluding all null bytes */
@@ -178,67 +179,45 @@ static type_status_e _multiply_string(vm_int_t int_value, byte_string_t *string_
     }
 
 
-    byte_string_t *new_byte_string;
-
-    TYPE_CHECK_STRING_CACHE_ERR(string_cache_add(temp_string,
-                                                 result_string_size,
-                                                 &new_byte_string));
-
-    memcpy(result_string, new_byte_string, sizeof(byte_string_t));
-    memory_manager_free(temp_string);
+    *result = new_string_object(temp_string, result_string_size);
     return TYPE_OK;
 }
 
 
 /* Casting functions */
-static type_status_e _int_to_float(object_t *object, object_t *output, uint16_t data)
+static type_status_e _int_to_float(object_t *object, object_t **output, uint16_t data)
 {
     data_object_t *data_obj = (data_object_t *) object;
-    data_object_t *data_out = (data_object_t *) output;
-
-    data_out->data_type = DATATYPE_FLOAT;
-    data_out->payload.float_value = (vm_float_t) data_obj->payload.int_value;
+    *output = new_float_object((vm_float_t) data_obj->payload.int_value);
     return TYPE_OK;
 }
 
 
-static type_status_e _int_to_string(object_t *object, object_t *output, uint16_t data)
+static type_status_e _int_to_string(object_t *object, object_t **output, uint16_t data)
 {
     data_object_t *data_obj = (data_object_t *) object;
-    data_object_t *data_out = (data_object_t *) output;
 
     vm_int_t int_value = data_obj->payload.int_value;
-    byte_string_t *new_byte_string;
     char temp_string[MAX_STRING_NUM_SIZE];
 
     int printed = snprintf(temp_string, MAX_STRING_NUM_SIZE, "%d", int_value);
-
-    TYPE_CHECK_STRING_CACHE_ERR(string_cache_add(temp_string,
-                                                 printed,
-                                                 &new_byte_string));
-
-    memcpy(&data_out->payload.string_value, new_byte_string, sizeof(byte_string_t));
-    data_out->data_type = DATATYPE_STRING;
+    *output = new_string_object(temp_string, printed);
     return TYPE_OK;
 }
 
 
-static type_status_e _int_to_bool(object_t *object, object_t *output, uint16_t data)
+static type_status_e _int_to_bool(object_t *object, object_t **output, uint16_t data)
 {
     data_object_t *data_obj = (data_object_t *) object;
-    data_object_t *data_out = (data_object_t *) output;
-
-    data_out->data_type = DATATYPE_BOOL;
-    data_out->payload.bool_value = (data_obj->payload.int_value == 0) ? 0u : 1u;
+    *output = new_bool_object((data_obj->payload.int_value == 0) ? 0u : 1u);
     return TYPE_OK;
 }
 
 
 
-static type_status_e _string_to_int(object_t *object, object_t *output, uint16_t base)
+static type_status_e _string_to_int(object_t *object, object_t **output, uint16_t base)
 {
     data_object_t *data_obj = (data_object_t *) object;
-    data_object_t *data_out = (data_object_t *) output;
 
     long int longval;
     char *endptr;
@@ -261,17 +240,15 @@ static type_status_e _string_to_int(object_t *object, object_t *output, uint16_t
         return TYPE_RUNTIME_ERROR;
     }
 
-    data_out->data_type = DATATYPE_INT;
-    data_out->payload.int_value = (vm_int_t) longval;
+    *output = new_int_object((vm_int_t) longval);
 
     return TYPE_OK;
 }
 
 
-static type_status_e _string_to_float(object_t *object, object_t *output, uint16_t data)
+static type_status_e _string_to_float(object_t *object, object_t **output, uint16_t data)
 {
     data_object_t *data_obj = (data_object_t *) object;
-    data_object_t *data_out = (data_object_t *) output;
 
     double doubleval;
     char *endptr;
@@ -287,42 +264,33 @@ static type_status_e _string_to_float(object_t *object, object_t *output, uint16
         return TYPE_RUNTIME_ERROR;
     }
 
-    data_out->data_type = DATATYPE_FLOAT;
-    data_out->payload.float_value = (vm_float_t) doubleval;
+    *output = new_float_object((vm_float_t) doubleval);
 
     return TYPE_OK;
 }
 
 
-static type_status_e _string_to_bool(object_t *object, object_t *output, uint16_t base)
+static type_status_e _string_to_bool(object_t *object, object_t **output, uint16_t base)
 {
     data_object_t *data_obj = (data_object_t *) object;
-    data_object_t *data_out = (data_object_t *) output;
-
-    data_out->data_type = DATATYPE_BOOL;
-    data_out->payload.bool_value = (data_obj->payload.string_value.size > 0u) ? 1u : 0u;
+    *output = new_bool_object((data_obj->payload.string_value.size > 0u) ? 1u : 0u);
     return TYPE_OK;
 }
 
 
-static type_status_e _float_to_int(object_t *object, object_t *output, uint16_t data)
+static type_status_e _float_to_int(object_t *object, object_t **output, uint16_t data)
 {
     data_object_t *data_obj = (data_object_t *) object;
-    data_object_t *data_out = (data_object_t *) output;
-
-    data_out->data_type = DATATYPE_INT;
-    data_out->payload.int_value = (vm_int_t) data_obj->payload.float_value;
+    *output = new_int_object((vm_int_t) data_obj->payload.float_value);
     return TYPE_OK;
 }
 
 
-static type_status_e _float_to_string(object_t *object, object_t *output, uint16_t places)
+static type_status_e _float_to_string(object_t *object, object_t **output, uint16_t places)
 {
     data_object_t *data_obj = (data_object_t *) object;
-    data_object_t *data_out = (data_object_t *) output;
 
     char *temp_string;
-    byte_string_t *new_byte_string;
     size_t string_size = MAX_STRING_NUM_SIZE + places;
 
     if (MAX_FLOAT_PLACES < places)
@@ -349,79 +317,56 @@ static type_status_e _float_to_string(object_t *object, object_t *output, uint16
     int printed = snprintf(temp_string, string_size, fmt_string,
                            data_obj->payload.float_value);
 
-    TYPE_CHECK_STRING_CACHE_ERR(string_cache_add(temp_string,
-                                                 printed,
-                                                 &new_byte_string));
-
+    *output = new_string_object(temp_string, printed);
     memory_manager_free(temp_string);
-    memcpy(&data_out->payload.string_value, new_byte_string, sizeof(byte_string_t));
-    data_out->data_type = DATATYPE_STRING;
     return TYPE_OK;
 }
 
 
-static type_status_e _float_to_bool(object_t *object, object_t *output, uint16_t data)
+static type_status_e _float_to_bool(object_t *object, object_t **output, uint16_t data)
 {
     data_object_t *data_obj = (data_object_t *) object;
-    data_object_t *data_out = (data_object_t *) output;
-
-    data_out->data_type = DATATYPE_BOOL;
-    data_out->payload.bool_value = (data_obj->payload.float_value == 0.0) ? 0u : 1u;
+    *output = new_bool_object((data_obj->payload.float_value == 0.0) ? 0u : 1u);
     return TYPE_OK;
 }
 
 
-static type_status_e _bool_to_int(object_t *object, object_t *output, uint16_t data)
+static type_status_e _bool_to_int(object_t *object, object_t **output, uint16_t data)
 {
     data_object_t *data_obj = (data_object_t *) object;
-    data_object_t *data_out = (data_object_t *) output;
-
-    data_out->data_type = DATATYPE_INT;
-    data_out->payload.int_value = (vm_int_t) data_obj->payload.bool_value;
+    *output = new_int_object((vm_int_t) data_obj->payload.bool_value);
     return TYPE_OK;
 }
 
 
-static type_status_e _bool_to_float(object_t *object, object_t *output, uint16_t data)
+static type_status_e _bool_to_float(object_t *object, object_t **output, uint16_t data)
 {
     data_object_t *data_obj = (data_object_t *) object;
-    data_object_t *data_out = (data_object_t *) output;
-
-    data_out->data_type = DATATYPE_FLOAT;
-    data_out->payload.float_value = (vm_float_t) data_obj->payload.bool_value;
+    *output = new_float_object((vm_float_t) data_obj->payload.bool_value);
     return TYPE_OK;
 }
 
 
-static type_status_e _bool_to_string(object_t *object, object_t *output, uint16_t data)
+static type_status_e _bool_to_string(object_t *object, object_t **output, uint16_t data)
 {
     data_object_t *data_obj = (data_object_t *) object;
-    data_object_t *data_out = (data_object_t *) output;
 
-    byte_string_t *new_byte_string;
     char temp_string[BOOL_STRING_SIZE];
 
     int printed = snprintf(temp_string, BOOL_STRING_SIZE, "%s",
                            (data_obj->payload.bool_value) ? BOOL_STRING_TRUE : BOOL_STRING_FALSE);
 
-    TYPE_CHECK_STRING_CACHE_ERR(string_cache_add(temp_string, printed, &new_byte_string));
-
-    memcpy(&data_out->payload.string_value, new_byte_string, sizeof(byte_string_t));
-    data_out->data_type = DATATYPE_STRING;
+    *output = new_string_object(temp_string, printed);
     return TYPE_OK;
 }
 
 
 /* Arithmetic functions */
-static type_status_e _binary_int_int(object_t *int_a, object_t *int_b, object_t *result,
+static type_status_e _binary_int_int(object_t *int_a, object_t *int_b, object_t **result,
                            binary_op_e op_type)
 {
     data_object_t *data_a = (data_object_t *) int_a;
     data_object_t *data_b = (data_object_t *) int_b;
-    data_object_t *data_result = (data_object_t *) result;
-
-    data_result->object.obj_type = OBJTYPE_DATA;
-    data_result->data_type = DATATYPE_INT;
 
     vm_int_t result_int;
 
@@ -448,20 +393,16 @@ static type_status_e _binary_int_int(object_t *int_a, object_t *int_b, object_t 
             break;
     }
 
-    data_result->payload.int_value = result_int;
+    *result = new_int_object(result_int);
     return TYPE_OK;
 }
 
 
 static type_status_e _binary_int_float(object_t *int_a, object_t *float_b,
-                             object_t *result, binary_op_e op_type)
+                             object_t **result, binary_op_e op_type)
 {
     data_object_t *data_a = (data_object_t *) int_a;
     data_object_t *data_b = (data_object_t *) float_b;
-    data_object_t *data_result = (data_object_t *) result;
-
-    data_result->object.obj_type = OBJTYPE_DATA;
-    data_result->data_type = DATATYPE_FLOAT;
 
     vm_float_t result_float;
 
@@ -492,13 +433,13 @@ static type_status_e _binary_int_float(object_t *int_a, object_t *float_b,
             break;
     }
 
-    data_result->payload.float_value = result_float;
+    *result = new_float_object(result_float);
     return TYPE_OK;
 }
 
 
 static type_status_e _binary_int_string(object_t *int_a, object_t *string_b,
-                                       object_t *result, binary_op_e op_type)
+                                        object_t **result, binary_op_e op_type)
 {
     if (BINARY_MULT != op_type)
     {
@@ -509,13 +450,8 @@ static type_status_e _binary_int_string(object_t *int_a, object_t *string_b,
 
     vm_int_t int_value = ((data_object_t *) int_a)->payload.int_value;
     byte_string_t *string_value = &((data_object_t *) string_b)->payload.string_value;
-    data_object_t *data_result = (data_object_t *) result;
-    byte_string_t *result_string = &data_result->payload.string_value;
 
-    data_result->object.obj_type = OBJTYPE_DATA;
-    data_result->data_type = DATATYPE_STRING;
-
-    if (TYPE_OK != _multiply_string(int_value, string_value, result_string))
+    if (TYPE_OK != _multiply_string(int_value, string_value, result))
     {
         // _multiply_string only returns success or runtime error
         return TYPE_RUNTIME_ERROR;
@@ -526,14 +462,10 @@ static type_status_e _binary_int_string(object_t *int_a, object_t *string_b,
 
 
 static type_status_e _binary_float_int(object_t *float_a, object_t *int_b,
-                             object_t *result, binary_op_e op_type)
+                                       object_t **result, binary_op_e op_type)
 {
     data_object_t *data_a = (data_object_t *) float_a;
     data_object_t *data_b = (data_object_t *) int_b;
-    data_object_t *data_result = (data_object_t *) result;
-
-    data_result->object.obj_type = OBJTYPE_DATA;
-    data_result->data_type = DATATYPE_FLOAT;
 
     vm_float_t result_float;
 
@@ -564,20 +496,16 @@ static type_status_e _binary_float_int(object_t *float_a, object_t *int_b,
             break;
     }
 
-    data_result->payload.float_value = result_float;
+    *result = new_float_object(result_float);
     return TYPE_OK;
 }
 
 
 static type_status_e _binary_float_float(object_t *float_a, object_t *float_b,
-                               object_t *result, binary_op_e op_type)
+                                         object_t **result, binary_op_e op_type)
 {
     data_object_t *data_a = (data_object_t *) float_a;
     data_object_t *data_b = (data_object_t *) float_b;
-    data_object_t *data_result = (data_object_t *) result;
-
-    data_result->object.obj_type = OBJTYPE_DATA;
-    data_result->data_type = DATATYPE_FLOAT;
 
     vm_float_t result_float;
 
@@ -608,20 +536,16 @@ static type_status_e _binary_float_float(object_t *float_a, object_t *float_b,
             break;
     }
 
-    data_result->payload.float_value = result_float;
+    *result = new_float_object(result_float);
     return TYPE_OK;
 }
 
 
-static type_status_e _binary_string_string(object_t *str_a, object_t *str_b, object_t *result,
-                                 binary_op_e op_type)
+static type_status_e _binary_string_string(object_t *str_a, object_t *str_b,
+                                           object_t **result, binary_op_e op_type)
 {
     data_object_t *data_a = (data_object_t *) str_a;
     data_object_t *data_b = (data_object_t *) str_b;
-    data_object_t *data_result = (data_object_t *) result;
-
-    data_result->object.obj_type = OBJTYPE_DATA;
-    data_result->data_type = DATATYPE_STRING;
 
     if ((BINARY_DIV == op_type) ||
         (BINARY_DIV == op_type) ||
@@ -633,12 +557,10 @@ static type_status_e _binary_string_string(object_t *str_a, object_t *str_b, obj
             return TYPE_RUNTIME_ERROR;
     }
 
-    byte_string_t *result_string = &data_result->payload.string_value;
     byte_string_t *lhs_string = &data_a->payload.string_value;
     byte_string_t *rhs_string = &data_b->payload.string_value;
 
     size_t new_string_size = (lhs_string->size + rhs_string->size) - 2;
-    byte_string_t *new_byte_string;
     char *temp_string;
 
     if ((temp_string = memory_manager_alloc(new_string_size)) == NULL)
@@ -655,17 +577,14 @@ static type_status_e _binary_string_string(object_t *str_a, object_t *str_b, obj
                   rhs_string->bytes, rhs_string->size - 1);
 
 
-    TYPE_CHECK_STRING_CACHE_ERR(string_cache_add(temp_string, new_string_size,
-                                                 &new_byte_string));
-
-    memcpy(result_string, new_byte_string, sizeof(byte_string_t));
+    *result = new_string_object(temp_string, new_string_size);
     memory_manager_free(temp_string);
     return TYPE_OK;
 }
 
 
 static type_status_e _binary_string_int(object_t *string_a, object_t *int_b,
-                                       object_t *result, binary_op_e op_type)
+                                        object_t **result, binary_op_e op_type)
 {
     if (BINARY_MULT != op_type)
     {
@@ -676,13 +595,8 @@ static type_status_e _binary_string_int(object_t *string_a, object_t *int_b,
 
     vm_int_t int_value = ((data_object_t *) int_b)->payload.int_value;
     byte_string_t *string_value = &((data_object_t *) string_a)->payload.string_value;
-    data_object_t *data_result = (data_object_t *) result;
-    byte_string_t *result_string = &data_result->payload.string_value;
 
-    data_result->object.obj_type = OBJTYPE_DATA;
-    data_result->data_type = DATATYPE_STRING;
-
-    if (TYPE_OK != _multiply_string(int_value, string_value, result_string))
+    if (TYPE_OK != _multiply_string(int_value, string_value, result))
     {
         // _multiply_string only returns success or runtime error
         return TYPE_RUNTIME_ERROR;
@@ -693,14 +607,10 @@ static type_status_e _binary_string_int(object_t *string_a, object_t *int_b,
 
 
 static type_status_e _binary_bool_int(object_t *bool_a, object_t *int_b,
-                                     object_t *result, binary_op_e op_type)
+                                      object_t **result, binary_op_e op_type)
 {
     data_object_t *data_a = (data_object_t *) bool_a;
     data_object_t *data_b = (data_object_t *) int_b;
-    data_object_t *data_result = (data_object_t *) result;
-
-    data_result->object.obj_type = OBJTYPE_DATA;
-    data_result->data_type = DATATYPE_INT;
 
     vm_int_t result_int;
 
@@ -731,20 +641,16 @@ static type_status_e _binary_bool_int(object_t *bool_a, object_t *int_b,
             break;
     }
 
-    data_result->payload.int_value = result_int;
+    *result = new_int_object(result_int);
     return TYPE_OK;
 }
 
 
 static type_status_e _binary_bool_float(object_t *bool_a, object_t *float_b,
-                                       object_t *result, binary_op_e op_type)
+                                        object_t **result, binary_op_e op_type)
 {
     data_object_t *data_a = (data_object_t *) bool_a;
     data_object_t *data_b = (data_object_t *) float_b;
-    data_object_t *data_result = (data_object_t *) result;
-
-    data_result->object.obj_type = OBJTYPE_DATA;
-    data_result->data_type = DATATYPE_FLOAT;
 
     vm_float_t result_float;
 
@@ -775,7 +681,7 @@ static type_status_e _binary_bool_float(object_t *bool_a, object_t *float_b,
             break;
     }
 
-    data_result->payload.float_value = result_float;
+    *result = new_float_object(result_float);
     return TYPE_OK;
 }
 
@@ -783,7 +689,7 @@ static type_status_e _binary_bool_float(object_t *bool_a, object_t *float_b,
 /**
  * @see type_operations_api.h
  */
-type_status_e type_binary_op(object_t *lhs, object_t *rhs, object_t *result,
+type_status_e type_binary_op(object_t *lhs, object_t *rhs, object_t **result,
                              binary_op_e op_type)
 {
     if ((OBJTYPE_DATA != lhs->obj_type) || (OBJTYPE_DATA != rhs->obj_type))
@@ -809,7 +715,7 @@ type_status_e type_binary_op(object_t *lhs, object_t *rhs, object_t *result,
 /**
  * @see type_operations_api.h
  */
-type_status_e type_cast_to(object_t *object, object_t *output, data_type_e type,
+type_status_e type_cast_to(object_t *object, object_t **output, data_type_e type,
                            uint16_t data)
 {
     if (NUM_DATATYPES <= type)
@@ -837,6 +743,5 @@ type_status_e type_cast_to(object_t *object, object_t *output, data_type_e type,
         return TYPE_INVALID_CAST;
     }
 
-    output->obj_type = OBJTYPE_DATA;
     return cast_func(object, output, data);
 }

@@ -30,7 +30,7 @@ typedef enum
  * Creates a new object by casting the provided object to the specified data type
  *
  * @param    object      Pointer to the object to cast
- * @param    output      Pointer to the output object
+ * @param    output      Pointer location to store pointer to output object
  * @param    type        Data type to cast to
  * @param    extra_data  If casting from string to int, this value specifies the
  *                       numerical base that the source string is written in, from
@@ -42,7 +42,7 @@ typedef enum
  *           then TYPE_RUNTIME_ERROR will be returned, otherwise TYPE_INVALID_CAST
  *           if the source type cannot be converted to the requested type.
  */
-type_status_e type_cast_to(object_t *object, object_t *output,
+type_status_e type_cast_to(object_t *object, object_t **output,
                            data_type_e type, uint16_t extra_data);
 
 
@@ -52,14 +52,14 @@ type_status_e type_cast_to(object_t *object, object_t *output,
  *
  * @param    lhs         Pointer to LHS value for the operation
  * @param    rhs         Pointer to RHS value for the operation
- * @param    result      Pointer to result value
+ * @param    result      Pointer location to store pointer to result value
  * @param    op_type  Arithmetic operation to perform
  *
  * @return   TYPE_OK if operation succeeded. If a runtime error was generated,
  *           then TYPE_RUNTIME_ERROR will be returned, otherwise TYPE_INVALID_ARITHMETIC
  *           if no function exists for handling the given LHS and RHS types
  */
-type_status_e type_binary_op(object_t *lhs, object_t *rhs, object_t *result,
+type_status_e type_binary_op(object_t *lhs, object_t *rhs, object_t **result,
                              binary_op_e op_type);
 
 

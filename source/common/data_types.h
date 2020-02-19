@@ -41,7 +41,8 @@ typedef enum
 /* Structure representing all objects */
 typedef struct
 {
-    object_type_e obj_type;
+    object_type_e obj_type;   // Object type tag
+    size_t refcount;          // Reference count (used for garbage collection)
 } object_t;
 
 

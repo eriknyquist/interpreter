@@ -66,7 +66,7 @@ static vm_status_e init_next_callstack_frame(callstack_t *callstack)
                     callstack->frames.num_items, (void **) &top_frame));
 
     // Initialize data stack for the top callstack frame
-    CHECK_ULIST_ERR(ulist_create(&top_frame->data, sizeof(data_stack_entry_t),
+    CHECK_ULIST_ERR(ulist_create(&top_frame->data, sizeof(object_t *),
                                  DATASTACK_ITEMS_PER_NODE));
 
     callstack->current_frame = top_frame;
@@ -90,7 +90,7 @@ vm_status_e vm_create(vm_instance_t *instance)
                                  CALLSTACK_ITEMS_PER_NODE));
 
     // Initialize constants pool
-    CHECK_ULIST_ERR(ulist_create(&instance->constants, sizeof(data_object_t),
+    CHECK_ULIST_ERR(ulist_create(&instance->constants, sizeof(object_t *),
                                  CONSTPOOL_ITEMS_PER_NODE));
 
     return init_next_callstack_frame(&instance->callstack);
