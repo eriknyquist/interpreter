@@ -115,7 +115,7 @@ typedef enum
 } scanner_status_e;
 
 
-void scanner_reset_line_number(void);
+void scanner_new_file(void);
 
 char *scanner_scan_token(char *input, token_t *output);
 
