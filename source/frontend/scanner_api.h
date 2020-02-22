@@ -103,6 +103,7 @@ typedef struct
     size_t lexeme_size;
     token_type_e token;
     uint64_t lineno;
+    uint64_t colno;
 } token_t;
 
 

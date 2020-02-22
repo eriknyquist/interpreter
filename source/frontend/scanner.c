@@ -35,7 +35,9 @@
     _tok->lexeme_size = (_lexemesize);                        \
     _tok->token = (_toktype);                                 \
     _tok->lineno = _lineno;                                   \
+    _tok->colno = (_colno);                                   \
                                                               \
+    _colno += _lexemesize;                                    \
     return (_lexemeptr) + (_lexemesize);                      \
 }
 
@@ -103,6 +105,7 @@ static const char *_keywords[NUM_FIXED_ALPHA_TOKENS] =
 
 
 static uint64_t _lineno = 1u;
+static uint64_t _colno = 1u;
 
 
 /**
@@ -142,9 +145,10 @@ static char *_check_for_keyword(char *input, token_type_e *tokentype)
 }
 
 
-void scanner_reset_line_number(void)
+void scanner_new_file(void)
 {
     _lineno = 1u;
+    _colno = 1u;
 }
 
 
@@ -162,6 +166,11 @@ char *scanner_scan_token(char *input, token_t *output)
         if (*input == '\n')
         {
             _lineno += 1u;
+            _colno = 1u;
+        }
+        else
+        {
+            _colno++;
         }
 
         input++;
@@ -381,11 +390,12 @@ void scanner_print_token(token_t *tok)
         return;
     }
 
-    printf("Token(type=%s, lexeme='%.*s', lineno=%lu)\n",
+    printf("Token(type=%s, lexeme='%.*s', location=%lu,%lu)\n",
            _token_names[tok->token],
            (int) tok->lexeme_size,
            tok->lexeme,
-           (unsigned long)tok->lineno);
+           (unsigned long)tok->lineno,
+           (unsigned long)tok->colno);
 }
 
 
