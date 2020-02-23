@@ -115,10 +115,25 @@ typedef enum
 } scanner_status_e;
 
 
+/**
+ * Reset line and column counters-- should be called when changing to a new file
+ */
 void scanner_new_file(void);
 
+
+/**
+ * Consume bytes until a valid token is found
+ *
+ * @param   input   Pointer to string containing source code
+ * @param   output  Pointer to location to store token
+ *
+ * @return  Pointer to first byte after found token, or NULL if no token was found
+ */
 char *scanner_scan_token(char *input, token_t *output);
 
+/**
+ * Print a token_t object in a human-readable format
+ */
 void scanner_print_token(token_t *tok);
 
 #endif /* SCANNER_API_H_ */

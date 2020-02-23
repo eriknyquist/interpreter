@@ -145,6 +145,9 @@ static char *_check_for_keyword(char *input, token_type_e *tokentype)
 }
 
 
+/**
+ * @see scanner_api.h
+ */
 void scanner_new_file(void)
 {
     _lineno = 1u;
@@ -152,6 +155,9 @@ void scanner_new_file(void)
 }
 
 
+/**
+ * @see scanner_api.h
+ */
 char *scanner_scan_token(char *input, token_t *output)
 {
 
@@ -383,6 +389,9 @@ char *scanner_scan_token(char *input, token_t *output)
 }
 
 
+/**
+ * @see scanner_api.h
+ */
 void scanner_print_token(token_t *tok)
 {
     if (tok->token >= NUM_TOKENS)
@@ -397,5 +406,3 @@ void scanner_print_token(token_t *tok)
            (unsigned long)tok->lineno,
            (unsigned long)tok->colno);
 }
-
-
