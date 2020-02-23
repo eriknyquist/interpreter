@@ -3,6 +3,7 @@
 
 typedef struct
 {
+    char *filename;
     char *data;
     size_t size_bytes;
 } file_in_memory_t;
@@ -25,7 +26,7 @@ typedef enum
  * instance
  *
  * @param   file      Pointer to file_in_memory_t instance to populate
- * @param   filename  Pointer to name of file to load
+ * @param   filename  Pointer to name of file to load (must be a null-terminated string)
  *
  * @return  FILE_READER_OK if file was loaded successfully
  */

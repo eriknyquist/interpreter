@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "file_reader_api.h"
 
@@ -24,6 +25,7 @@ file_reader_status_e file_reader_load(file_in_memory_t *file, const char *filena
 
     long file_size_bytes_long;
 
+    // Get file size in bytes
     fseek(fp, 0, SEEK_END);
     file_size_bytes_long = ftell(fp);
     fseek(fp, 0, SEEK_SET);
@@ -34,22 +36,33 @@ file_reader_status_e file_reader_load(file_in_memory_t *file, const char *filena
     }
 
     size_t file_size_bytes = (size_t) file_size_bytes_long;
+    size_t filename_len = strlen(filename);
 
-    if ((file->data = malloc(file_size_bytes + 1u)) == NULL)
+    // Allocate space to store filename + file data
+    char *file_data;
+    if ((file_data = malloc(file_size_bytes + filename_len + 2u)) == NULL)
     {
         return FILE_READER_MEMORY_ERROR;
     }
 
-    size_t bytes_read = fread(file->data, 1u, file_size_bytes, fp);
+    // Copy filename to allocated block
+    memcpy(file_data, filename, filename_len);
+    file_data[filename_len] = '\0';
+    file->filename = file_data;
+
+    // Read file data into allocated block
+    file_data += filename_len + 1u;
+    size_t bytes_read = fread(file_data, 1u, file_size_bytes, fp);
     if (bytes_read != file_size_bytes)
     {
         return FILE_READER_READ_ERROR;
     }
 
-    fclose(fp);
-
+    file_data[file_size_bytes] = '\0';
+    file->data = file_data;
     file->size_bytes = bytes_read;
-    file->data[file_size_bytes] = '\0';
+
+    fclose(fp);
 
     return FILE_READER_OK;
 }
@@ -65,10 +78,11 @@ file_reader_status_e file_reader_destroy(file_in_memory_t *file)
         return FILE_READER_INVALID_PARAM;
     }
 
-    if (NULL != file->data)
+    if (NULL != file->filename)
     {
-        free(file->data);
+        free(file->filename);
         file->data = NULL;
+        file->filename = NULL;
         file->size_bytes = 0u;
     }
 
