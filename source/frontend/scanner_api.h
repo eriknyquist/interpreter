@@ -131,6 +131,14 @@ void scanner_new_file(void);
  */
 char *scanner_scan_token(char *input, token_t *output);
 
+
+/**
+ * If the last token returned was of type TOKEN_ERROR, then this function
+ * will return a human-readable message describing the error
+ */
+const char *scanner_error_message(void);
+
+
 /**
  * Print a token_t object in a human-readable format
  */

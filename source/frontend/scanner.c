@@ -27,6 +27,8 @@
 // macro for testing if a byte matches an ASCII decimal character (0-9) or '.'
 #define IS_FLOAT_CHAR(c) (IS_DEC_DIGIT(c) || ('.' == c))
 
+// macro to set the scanner error message
+#define ERROR_MSG(msg) { _last_scanner_error_msg = msg; }
 
 // helper macro to set the current token_t
 #define RETURN_TOKEN(_tok, _lexemeptr, _lexemesize, _toktype) \
@@ -106,6 +108,8 @@ static const char *_keywords[NUM_FIXED_ALPHA_TOKENS] =
 
 static uint64_t _lineno = 1u;
 static uint64_t _colno = 1u;
+
+static const char *_last_scanner_error_msg = NULL;
 
 
 /**
@@ -247,6 +251,7 @@ char *scanner_scan_token(char *input, token_t *output)
                     {
                         // Mutiple dots in a float doesn't make sense
                         lexeme_len = ((unsigned) (input - lexeme_start)) + 1u;
+                        ERROR_MSG("Mutiple dots in literal float");
                         RETURN_TOKEN(output, lexeme_start, lexeme_len, TOKEN_ERROR);
                     }
                     saw_dot = 1;
@@ -260,6 +265,7 @@ char *scanner_scan_token(char *input, token_t *output)
         {
             // Invalid character in literal int/float
             lexeme_len = ((unsigned) (input - lexeme_start)) + 2;
+            ERROR_MSG("Unexpected character in literal value");
             RETURN_TOKEN(output, lexeme_start, lexeme_len, TOKEN_ERROR);
         }
 
@@ -385,7 +391,17 @@ char *scanner_scan_token(char *input, token_t *output)
             break;
     }
 
+    ERROR_MSG("Unexpected character");
     RETURN_TOKEN(output, input, 1, TOKEN_ERROR);
+}
+
+
+/**
+ * @see scanner_api.h
+ */
+const char *scanner_error_message(void)
+{
+    return _last_scanner_error_msg;
 }
 
 
