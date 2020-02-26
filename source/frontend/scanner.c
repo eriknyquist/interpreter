@@ -80,6 +80,8 @@ static const char *_token_names[NUM_TOKENS] =
     "TOKEN_PRINT",
     "TOKEN_TRUE",
     "TOKEN_FALSE",
+    "TOKEN_FUNC",
+    "TOKEN_CLASS",
     "TOKEN_NAME",
     "TOKEN_INT",
     "TOKEN_FLOAT",
@@ -103,7 +105,9 @@ static const char *_keywords[NUM_FIXED_ALPHA_TOKENS] =
     TOKEN_OR_LEXEME,
     TOKEN_PRINT_LEXEME,
     TOKEN_TRUE_LEXEME,
-    TOKEN_FALSE_LEXEME
+    TOKEN_FALSE_LEXEME,
+    TOKEN_FUNC_LEXEME,
+    TOKEN_CLASS_LEXEME
 };
 
 

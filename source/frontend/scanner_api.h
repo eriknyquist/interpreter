@@ -46,9 +46,11 @@
 #define TOKEN_PRINT_LEXEME         "print"
 #define TOKEN_TRUE_LEXEME          "true"
 #define TOKEN_FALSE_LEXEME         "false"
+#define TOKEN_FUNC_LEXEME          "func"
+#define TOKEN_CLASS_LEXEME         "class"
 
 // Don't forget to change this when adding/removing a fixed alpha token!
-#define NUM_FIXED_ALPHA_TOKENS (9)
+#define NUM_FIXED_ALPHA_TOKENS (11)
 
 
 typedef enum
@@ -91,6 +93,8 @@ typedef enum
     TOKEN_PRINT,                // print
     TOKEN_TRUE,                 // true
     TOKEN_FALSE,                // false
+    TOKEN_FUNC,                 // func
+    TOKEN_CLASS,                // class
 /*
  * Fixed multi-byte alpha lexemes need to stay grouped
  */
