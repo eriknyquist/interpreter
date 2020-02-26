@@ -21,7 +21,7 @@ static void _show_error_from_token(const char *msg, file_in_memory_t *file, toke
     }
 
     // Error location will always be the last character of error token's lexeme
-    unsigned colno = (tok->colno + tok->lexeme_size) - 2u;
+    unsigned colno = (tok->colno + tok->lexeme_size) - 1u;
 
     unsigned line_len = (unsigned) (end - start);
 
@@ -30,7 +30,7 @@ static void _show_error_from_token(const char *msg, file_in_memory_t *file, toke
 
     printf("%.*s\n", (int) line_len, start);
 
-    for (int i = 0; i < colno; i++)
+    for (int i = 0; i < colno - 1; i++)
     {
         printf(" ");
     }

@@ -79,6 +79,9 @@ typedef enum
     TOKEN_NOTEQUAL,             // !=
     TOKEN_GREATEREQUAL,         // >=
     TOKEN_LESSEQUAL,            // <=
+/*
+ * Fixed multi-byte alpha lexemes need to stay grouped
+ */
     TOKEN_IF,                   // if
     TOKEN_IN,                   // in
     TOKEN_WHILE,                // while
@@ -88,9 +91,13 @@ typedef enum
     TOKEN_PRINT,                // print
     TOKEN_TRUE,                 // true
     TOKEN_FALSE,                // false
+/*
+ * Fixed multi-byte alpha lexemes need to stay grouped
+ */
     TOKEN_NAME,                 // function/variable names
     TOKEN_INT,                  // literal integer
     TOKEN_FLOAT,                // literal float
+    TOKEN_STRING,               // literal string
     TOKEN_ERROR,                // syntax error
     TOKEN_NONE,
     NUM_TOKENS

@@ -83,6 +83,7 @@ static const char *_token_names[NUM_TOKENS] =
     "TOKEN_NAME",
     "TOKEN_INT",
     "TOKEN_FLOAT",
+    "TOKEN_STRING",
     "TOKEN_ERROR"
 };
 
@@ -150,6 +151,32 @@ static char *_check_for_keyword(char *input, token_type_e *tokentype)
 
 
 /**
+ * Assuming 'input' points to the opening quote character of s string literal,
+ * consume the entire steing and populate a token_t
+ */
+static char *_consume_string(char *input, token_t *tok)
+{
+    char *start = input;
+
+    input++;
+    while (*input && ((*input != *start) || ('\\' == *(input - 1))))
+    {
+        input++;
+    }
+
+    unsigned lexeme_len = ((unsigned) (input - start)) + 1u;
+    if (*input != *start)
+    {
+        // Input ended before closing quote was seen
+        ERROR_MSG("Missing closing quote on string literal");
+        RETURN_TOKEN(tok, start, 1, TOKEN_ERROR);
+    }
+
+    RETURN_TOKEN(tok, start, lexeme_len, TOKEN_STRING);
+}
+
+
+/**
  * @see scanner_api.h
  */
 void scanner_new_file(void)
@@ -192,7 +219,6 @@ char *scanner_scan_token(char *input, token_t *output)
     }
 
     // Handle alpha tokens
-
     char *lexeme_start;
     unsigned lexeme_len;
 
@@ -273,8 +299,13 @@ char *scanner_scan_token(char *input, token_t *output)
         RETURN_TOKEN(output, lexeme_start, lexeme_len, tokentype);
     }
 
-    // Handle fixed non-alphabetic tokens
+    // Handle string literals
+    if ((*input == '\'') || (*input == '"'))
+    {
+        return _consume_string(input, output);
+    }
 
+    // Handle fixed non-alphabetic tokens
     switch(*input)
     {
         case TOKEN_LPAREN_LEXEME:
