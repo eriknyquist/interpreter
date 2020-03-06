@@ -156,7 +156,7 @@ static char *_check_for_keyword(char *input, token_type_e *tokentype)
 
 /**
  * Assuming 'input' points to the opening quote character of s string literal,
- * consume the entire steing and populate a token_t
+ * consume the entire string and populate a token_t
  */
 static char *_consume_string(char *input, token_t *tok)
 {
